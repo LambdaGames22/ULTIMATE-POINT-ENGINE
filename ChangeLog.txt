@@ -1,18 +1,19 @@
-1. Added new ability to change sprite for the env_funnel entity
-2. Added new flag "Repeatable" for env_funnel entity
-3. Env_beam now have damage type choosing
-4. Entities and monsters now have ability to be spawned only on ANY DIFFICULT / EASY / NORMAL / HARD / EXTREME (depeding what mapper will choose)
-5. Added new flag "Permanent" for env_fade
-6. "HANDGRENADE_MAX_CARRY" value is changed to 5
-7. "HANDGRENADE_DEFAULT_GIVE" value is changed to 1
-8. 
-9.
-10.
-11.
-12.
-13.
-14.
-15.
+ULTIMATE POINT ENGINE V0.8 (CHANGELOG)
+1. Sv_cheats now working after save/restore.
+2. Added sticky gibs (puts blood on the wall and stays put) that were unfinished by Valve.
+3. Fixed famous bug that doesn't allowed pumping sound to be played for the last shot from shotgun.
+4. Fixed bug with reload for Python which repeats reloading when you hold the attack key.
+5. Fixed looped empty sound for RPG, so it doesn't rape your ears anymore.
+6. Fixed bug with deploy animation for snark (the animation is now playing completely).
+7. Fixed bug with double handling for crowbar.
+8. Added player attack animation on primary shot from shotgun.
+9. Fixed attachment position in v_shotgun.mdl 
+10. Fixed attachment position in v_deagle.mdl 
+11. Fixed attachment position in v_357.mdl 
+12. Added new flag "Permanent" for env_fade
+13. Added new ability to change sprite for the env_funnel entity
+14. Entities and monsters now have ability to be spawned only on ANY DIFFICULT / EASY / NORMAL / HARD / EXTREME (depeding what mapper will choose)
+15. Updated egon effect.
 16.
 17.
 18.
@@ -28,3 +29,38 @@
 28.
 29.
 30.
+31.
+32.
+33.
+34.
+35.
+36.
+37.
+38.
+39.
+40.
+41.
+42.
+43.
+44.
+45.
+46.
+47.
+48.
+49.
+50.
+51.
+52.
+53.
+54.
+55.
+56.
+57.
+58.
+59.
+60.
+
+
+
+// ЗАМЕТКА!
+https://github.com/ValveSoftware/halflife/issues/2091
