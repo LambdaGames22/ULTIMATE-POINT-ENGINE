@@ -62,6 +62,11 @@ class CTripmineGrenade : public CGrenade
 	void MakeBeam( void );
 	void KillBeam( void );
 
+	void mpSprite1 ( const Vector &startPoint, const Vector &endPoint, float timeBlend );
+	void mpSprite2 ( const Vector &startPoint, const Vector &endPoint, float timeBlend );
+
+	CSprite		*m_pSprite;
+
 	float		m_flPowerUp;
 	Vector		m_vecDir;
 	Vector		m_vecEnd;
@@ -87,6 +92,7 @@ TYPEDESCRIPTION	CTripmineGrenade::m_SaveData[] =
 	DEFINE_FIELD( CTripmineGrenade, m_posOwner, FIELD_POSITION_VECTOR ),
 	DEFINE_FIELD( CTripmineGrenade, m_angleOwner, FIELD_VECTOR ),
 	DEFINE_FIELD( CTripmineGrenade, m_pRealOwner, FIELD_EDICT ),
+	DEFINE_FIELD( CTripmineGrenade, m_pSprite, FIELD_CLASSPTR ), // Step4enko: A shit that should save sprite after save/restore but it won't D:
 };
 
 IMPLEMENT_SAVERESTORE(CTripmineGrenade,CGrenade);
@@ -234,6 +240,9 @@ void CTripmineGrenade :: KillBeam( void )
 	{
 		UTIL_Remove( m_pBeam );
 		m_pBeam = NULL;
+		UTIL_Remove( m_pSprite );
+		m_pBeam = NULL;
+		m_pSprite = NULL;
 	}
 }
 
@@ -259,8 +268,42 @@ void CTripmineGrenade :: MakeBeam( void )
 	m_pBeam->SetColor( 0, 214, 198 );
 	m_pBeam->SetScrollRate( 255 );
 	m_pBeam->SetBrightness( 64 );
+	mpSprite1( pev->origin, tr.vecEndPos, 1 ); // Step4enko
+	//mpSprite2( pev->origin, , 1) ; // Step4enko: UNDONE: Sprite at start position.
 }
 
+void CTripmineGrenade :: mpSprite1 ( const Vector &startPoint, const Vector &endPoint, float timeBlend )
+{
+	//SPRITE BEGIN TEST
+	m_pSprite = CSprite::SpriteCreate( "sprites/blueflare1.spr", pev->origin, FALSE );
+	m_pSprite->pev->scale = 0.15;
+	m_pSprite->SetTransparency( kRenderGlow, 220, 220, 220, 180, kRenderFxNoDissipation ); // alpha 120
+	m_pSprite->SetColor( 0, 214, 220 ); // 198 - b
+	m_pSprite->pev->spawnflags |= SF_SPRITE_TEMPORARY;
+	UTIL_SetOrigin( m_pSprite->pev, endPoint );
+		m_pSprite->pev->frame += 8 * gpGlobals->frametime;
+
+	if ( m_pSprite->pev->frame > m_pSprite->Frames() )
+		m_pSprite->pev->frame = 0;
+	//SPRITE END TEST
+	
+}
+
+void CTripmineGrenade :: mpSprite2 ( const Vector &startPoint, const Vector &endPoint, float timeBlend )
+{
+	//SPRITE BEGIN TEST
+	m_pSprite = CSprite::SpriteCreate( "sprites/blueflare1.spr", pev->origin, FALSE );
+	m_pSprite->pev->scale = 0.15; // 0.15
+	m_pSprite->SetTransparency( kRenderGlow, 220, 220, 220, 120, kRenderFxNoDissipation );
+	m_pSprite->SetColor( 0, 214, 220 ); // 198 - b
+	m_pSprite->pev->spawnflags |= SF_SPRITE_TEMPORARY;
+	UTIL_SetOrigin( m_pSprite->pev, endPoint ); //this is where the egon points to where i'm shooting jonny , but does it link?
+		m_pSprite->pev->frame += 8 * gpGlobals->frametime;
+	if ( m_pSprite->pev->frame > m_pSprite->Frames() )
+		m_pSprite->pev->frame = 0;
+	//SPRITE END TEST
+	
+}
 
 void CTripmineGrenade :: BeamBreakThink( void  )
 {
@@ -383,6 +426,8 @@ void CTripmine::Precache( void )
 {
 	PRECACHE_MODEL ("models/v_tripmine.mdl");
 	PRECACHE_MODEL ("models/p_tripmine.mdl");
+	PRECACHE_MODEL("sprites/blueflare1.spr"); // Step4enko
+
 	UTIL_PrecacheOther( "monster_tripmine" );
 
 	m_usTripFire = PRECACHE_EVENT( 1, "events/tripfire.sc" );
