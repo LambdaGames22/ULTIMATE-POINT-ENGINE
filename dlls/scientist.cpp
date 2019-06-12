@@ -1,21 +1,21 @@
 /***
 *
-*	Copyright (c) 1996-2001, Valve LLC. All rights reserved.
+*	Copyright (c) 2016-2020, UPTeam. All rights reserved.
 *	
 *	This product contains software technology licensed from Id 
 *	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
 *	All Rights Reserved.
 *
-*   This source code contains proprietary and confidential information of
-*   Valve LLC and its suppliers.  Access to this code is restricted to
-*   persons who have executed a written SDK license with Valve.  Any access,
-*   use or distribution of this code by or to any unlicensed person is illegal.
+*   This code is made by UPTeam (Half-Life: Ultimate Point developers)
+*   Coders: Step4enko/LambdaGames22
+*
+*   https://www.moddb.com/mods/half-life-ultimate-point
 *
 ****/
-//=========================================================
-// human scientist (passive lab worker)
-//=========================================================
 
+//=========================================================
+// Scientist
+//=========================================================
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -27,9 +27,15 @@
 #include	"animation.h"
 #include	"soundent.h"
 
-
 #define		NUM_SCIENTIST_HEADS		4 // four heads available for scientist model
-enum { HEAD_GLASSES = 0, HEAD_EINSTEIN = 1, HEAD_LUTHER = 2, HEAD_SLICK = 3 };
+
+enum 
+{ 
+	HEAD_GLASSES = 0, 
+	HEAD_EINSTEIN = 1, 
+	HEAD_LUTHER = 2, 
+	HEAD_SLICK = 3 
+};
 
 enum
 {
@@ -98,7 +104,7 @@ public:
 	
 	void TalkInit( void );
 
-	void			Killed( entvars_t *pevAttacker, int iGib );
+	void		    Killed( entvars_t *pevAttacker, int iGib );
 	
 	virtual int		Save( CSave &save );
 	virtual int		Restore( CRestore &restore );
@@ -130,7 +136,7 @@ Task_t	tlFollow[] =
 {
 	{ TASK_SET_FAIL_SCHEDULE,	(float)SCHED_CANT_FOLLOW },	// If you fail, bail out of follow
 	{ TASK_MOVE_TO_TARGET_RANGE,(float)128		},	// Move within 128 of target ent (client)
-	{ TASK_SET_SCHEDULE,		(float)SCHED_TARGET_FACE }, // WAS CUT
+	//{ TASK_SET_SCHEDULE,		(float)SCHED_TARGET_FACE },
 };
 
 Schedule_t	slFollow[] =
@@ -421,7 +427,6 @@ DEFINE_CUSTOM_SCHEDULES( CScientist )
 
 
 IMPLEMENT_CUSTOM_SCHEDULES( CScientist, CTalkMonster );
-
 
 void CScientist::DeclineFollowing( void )
 {
@@ -747,9 +752,9 @@ void CScientist :: TalkInit()
 	m_szGrp[TLK_NOSHOOT] =	"SC_SCARED";
 	m_szGrp[TLK_HELLO] =	"SC_HELLO";
 
-	m_szGrp[TLK_PLHURT1] =	"!SC_CUREA";
-	m_szGrp[TLK_PLHURT2] =	"!SC_CUREB"; 
-	m_szGrp[TLK_PLHURT3] =	"!SC_CUREC";
+	m_szGrp[TLK_PLHURT1] =	"SC_CUREA";
+	m_szGrp[TLK_PLHURT2] =	"SC_CUREB"; 
+	m_szGrp[TLK_PLHURT3] =	"SC_CUREC";
 
 	m_szGrp[TLK_PHELLO] =	"SC_PHELLO";
 	m_szGrp[TLK_PIDLE] =	"SC_PIDLE";
@@ -759,14 +764,16 @@ void CScientist :: TalkInit()
 	m_szGrp[TLK_WOUND] =	"SC_WOUND";
 	m_szGrp[TLK_MORTAL] =	"SC_MORTAL";
 
+	m_szGrp[TLK_SORRY]  =	"SC_SORRY"; // Step4enko
+
 	// get voice for head
 	switch (pev->body % 3)
 	{
 	default:
-	case HEAD_GLASSES:	m_voicePitch = 105; break;	//glasses
-	case HEAD_EINSTEIN: m_voicePitch = 100; break;	//einstein
-	case HEAD_LUTHER:	m_voicePitch = 95;  break;	//luther
-	case HEAD_SLICK:	m_voicePitch = 100;  break;//slick
+	case HEAD_GLASSES:	m_voicePitch = 105; break; //glasses
+	case HEAD_EINSTEIN: m_voicePitch = 100; break; //einstein
+	case HEAD_LUTHER:	m_voicePitch = 95;  break; //luther
+	case HEAD_SLICK:	m_voicePitch = 100;  break; //slick
 	}
 }
 
@@ -1113,7 +1120,12 @@ void CScientist::Heal( void )
 	if ( target.Length() > 100 )
 		return;
 
-	m_hTargetEnt->TakeHealth( gSkillData.scientistHeal, DMG_GENERIC );
+	// Step4enko: Now mappers can set custom value
+	if (pev->dmg == 0)
+	    m_hTargetEnt->TakeHealth( gSkillData.scientistHeal, DMG_GENERIC );
+	else
+		m_hTargetEnt->TakeHealth( pev->dmg, DMG_GENERIC );
+
 	// Don't heal again for 1 minute
 	m_healTime = gpGlobals->time + 60;
 }
@@ -1251,7 +1263,7 @@ void CSittingScientist :: Spawn( )
 	pev->solid			= SOLID_SLIDEBOX;
 	pev->movetype		= MOVETYPE_STEP;
 	pev->effects		= 0;
-	pev->health			= 50;
+	pev->health			= gSkillData.scientistHealth;
 	
 	m_bloodColor = BLOOD_COLOR_RED;
 	m_flFieldOfView		= VIEW_FIELD_WIDE; // indicates the width of this monster's forward view cone ( as a dotproduct result )
@@ -1261,7 +1273,8 @@ void CSittingScientist :: Spawn( )
 	SetBits(pev->spawnflags, SF_MONSTER_PREDISASTER); // predisaster only!
 
 	if ( pev->body == -1 )
-	{// -1 chooses a random head
+	{
+		// -1 chooses a random head
 		pev->body = RANDOM_LONG(0, NUM_SCIENTIST_HEADS-1);// pick a head, any head
 	}
 	// Luther is black, make his hands black
