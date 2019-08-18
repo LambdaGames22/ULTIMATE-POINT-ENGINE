@@ -13,6 +13,11 @@
 ****/
 
 //=========================================================
+// Step4enko: TODO:
+// JUMP ATTACK?
+//=========================================================
+
+//=========================================================
 // Gonome
 //=========================================================
 #include	"extdll.h"
@@ -114,11 +119,9 @@ int CGonome::IgnoreConditions ( void )
 			iIgnore |= (bits_COND_LIGHT_DAMAGE|bits_COND_HEAVY_DAMAGE);
 	}
 
-	// Step4enko
+	// Step4enko: Do no try to smell or eat something if we have an enemy.
 	if ( m_hEnemy != NULL )
-	{
 		iIgnore = bits_COND_SMELL | bits_COND_SMELL_FOOD;
-	}
 
 	if ((m_Activity == ACT_SMALL_FLINCH) || (m_Activity == ACT_BIG_FLINCH))
 	{
