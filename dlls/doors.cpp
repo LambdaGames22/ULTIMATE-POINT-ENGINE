@@ -26,6 +26,12 @@
 
 #define SF_BREAK_CROWBAR		  256
 
+//===========================================================
+// Step4enko: TODO:
+// m_iSecondSpeed & m_fSecondSpeedDelay are not implemented yet.
+// Floating point support for "wait" (delay before close)
+//===========================================================
+
 extern void SetMovedir(entvars_t* ev);
 
 #define noiseMoving noise1
@@ -138,7 +144,7 @@ TYPEDESCRIPTION	CBaseDoor::m_SaveData[] =
 IMPLEMENT_SAVERESTORE( CBaseDoor, CBaseToggle );
 
 
-#define DOOR_SENTENCEWAIT	6
+#define DOOR_SENTENCE           6
 #define DOOR_SOUNDWAIT		3
 #define BUTTON_SOUNDWAIT	0.5
 
