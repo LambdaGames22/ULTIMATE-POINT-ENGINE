@@ -413,8 +413,8 @@
 	TargetOnOpenStart(target_destination) : "Fire on Open (Start)"
 	target(target_destination) : "Fire on Open (End)"
 	
-	TargetOnCloseStart(string) : "Fire on Close (Start)"
-	netname(string) : "Fire on Close (End)"
+	TargetOnCloseStart(target_destination) : "Fire on Close (Start)"
+	netname(target_destination) : "Fire on Close (End)"
 	
 	
 	
