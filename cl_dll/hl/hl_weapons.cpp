@@ -55,7 +55,6 @@ vec3_t previousorigin;
 CGlock g_Glock;
 CCrowbar g_Crowbar;
 CPython g_Python;
-CDeagle g_Deagle;
 CMP5 g_Mp5;
 CCrossbow g_Crossbow;
 CShotgun g_Shotgun;
@@ -614,7 +613,6 @@ void HUD_InitClientWeapons( void )
 	HUD_PrepEntity( &g_Glock	, &player );
 	HUD_PrepEntity( &g_Crowbar	, &player );
 	HUD_PrepEntity( &g_Python	, &player );
-	HUD_PrepEntity( &g_Deagle	, &player );
 	HUD_PrepEntity( &g_Mp5	, &player );
 	HUD_PrepEntity( &g_Crossbow	, &player );
 	HUD_PrepEntity( &g_Shotgun	, &player );
@@ -745,10 +743,6 @@ void HUD_WeaponsPostThink( local_state_s *from, local_state_s *to, usercmd_t *cm
 
 		case WEAPON_SNARK:
 			pWeapon = &g_Snark;
-			break;
-
-		case WEAPON_DEAGLE:
-			pWeapon = &g_Deagle;
 			break;
 	}
 

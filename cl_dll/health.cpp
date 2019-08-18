@@ -145,6 +145,15 @@ void CHudHealth::GetPainColor( int &r, int &g, int &b )
 {
 	int iHealth = m_iHealth;
 
+	if (iHealth > 100)
+		iHealth -= 100;
+	else if ( iHealth < 0 )
+		iHealth = 0;
+
+	r = 255 - iHealth * 2.55;
+	g = iHealth * 2.55;
+	b = 0;
+/*
 	if (iHealth > 25)
 		iHealth -= 25;
 	else if ( iHealth < 0 )
@@ -164,7 +173,7 @@ void CHudHealth::GetPainColor( int &r, int &g, int &b )
 		g = 0;
 		b = 0;
 	}
-#endif 
+#endif */
 }
 
 int CHudHealth::Draw(float flTime)

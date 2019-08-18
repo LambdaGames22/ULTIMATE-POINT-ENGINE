@@ -26,6 +26,7 @@
 #include "hud_servers.h"
 #include "vgui_int.h"
 #include "vgui_TeamFortressViewport.h"
+#include "blur.h"
 
 #include "demo.h"
 #include "demo_api.h"
@@ -128,14 +129,6 @@ int __MsgFunc_GameMode(const char *pszName, int iSize, void *pbuf )
 	return gHUD.MsgFunc_GameMode( pszName, iSize, pbuf );
 }
 
-// Step4enko
-int __MsgFunc_WaterSplash(const char *pszName, int iSize, void *pbuf)
-{
-    gHUD.MsgFunc_WaterSplash( pszName, iSize, pbuf );
-    return 1;
-}
-
-
 // TFFree Command Menu
 void __CmdFunc_OpenCommandMenu(void)
 {
@@ -232,6 +225,13 @@ int __MsgFunc_BuildSt(const char *pszName, int iSize, void *pbuf)
 int __MsgFunc_Impact(const char *pszName, int iSize, void *pbuf)
 {
     gHUD.MsgFunc_Impact( pszName, iSize, pbuf );
+    return 1;
+}
+
+// Step4enko
+int __MsgFunc_WaterSplash(const char *pszName, int iSize, void *pbuf)
+{
+    gHUD.MsgFunc_WaterSplash( pszName, iSize, pbuf );
     return 1;
 }
 
@@ -343,9 +343,10 @@ void CHud :: Init( void )
 	// VGUI Menus
 	HOOK_MESSAGE( VGUIMenu );
 
+	viewFlags = 0;
+
 	CVAR_CREATE( "hud_classautokill", "1", FCVAR_ARCHIVE | FCVAR_USERINFO );		// controls whether or not to suicide immediately on TF class switch
 	CVAR_CREATE( "hud_takesshots", "0", FCVAR_ARCHIVE );		// controls whether or not to automatically take screenshots at the end of a round
-
 
 	m_iLogo = 0;
 	m_iFOV = 0;
@@ -388,6 +389,8 @@ void CHud :: Init( void )
 	m_AmmoSecondary.Init();
 	m_TextMessage.Init();
 	m_StatusIcons.Init();
+	m_Lensflare.Init();
+
 	GetClientVoiceMgr()->Init(&g_VoiceStatusHelper, (vgui::Panel**)&gViewPort);
 
 	m_Menu.Init();
@@ -537,6 +540,8 @@ void CHud :: VidInit( void )
 	m_AmmoSecondary.VidInit();
 	m_TextMessage.VidInit();
 	m_StatusIcons.VidInit();
+	m_Lensflare.VidInit();
+
 	GetClientVoiceMgr()->VidInit();
 }
 

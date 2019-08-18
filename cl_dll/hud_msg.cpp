@@ -28,21 +28,6 @@ extern IParticleMan *g_pParticleMan;
 
 extern void EV_HLDM_WaterSplash( float x, float y, float z );
 
-int CHud :: MsgFunc_WaterSplash( const char *pszName, int iSize, void *pbuf )
-{
-    BEGIN_READ( pbuf, iSize );
-    float X, Y, Z;
-    
-    X = READ_COORD();
-    Y = READ_COORD();
-    Z = READ_COORD();
-    
-    EV_HLDM_WaterSplash( X, Y, Z );
-    return 1;
-}
-
-void EV_HLDM_Particles(vec_t Pos_X, vec_t Pos_Y, vec_t Pos_Z, float PosNorm_X, float PosNorm_Y, float PosNorm_Z, int DoPuff, int Material );
-
 #if !defined( _TFC )
 extern BEAM *pBeam;
 extern BEAM *pBeam2;
@@ -51,6 +36,8 @@ extern BEAM *pBeam2;
 #if defined( _TFC )
 void ClearEventList( void );
 #endif
+
+void EV_HLDM_Particles(vec_t Pos_X, vec_t Pos_Y, vec_t Pos_Z, float PosNorm_X, float PosNorm_Y, float PosNorm_Z, int DoPuff, int Material );
 
 /// USER-DEFINED SERVER MESSAGE HANDLERS
 
@@ -67,6 +54,8 @@ int CHud :: MsgFunc_ResetHUD(const char *pszName, int iSize, void *pbuf )
 			pList->p->Reset();
 		pList = pList->pNext;
 	}
+
+	m_Lensflare.SunEnabled = FALSE;
 
 	// reset sensitivity
 	m_flMouseSensitivity = 0;
@@ -107,10 +96,25 @@ int CHud :: MsgFunc_Impact( const char *pszName, int iSize, void *pbuf )
     return 1;
 }
 
+int CHud :: MsgFunc_WaterSplash( const char *pszName, int iSize, void *pbuf )
+{
+    BEGIN_READ( pbuf, iSize );
+    float X, Y, Z;
+    
+    X = READ_COORD();
+    Y = READ_COORD();
+    Z = READ_COORD();
+    
+    EV_HLDM_WaterSplash( X, Y, Z );
+    return 1;
+}
+
 void CHud :: MsgFunc_InitHUD( const char *pszName, int iSize, void *pbuf )
 {
 	// prepare all hud data
 	HUDLIST *pList = m_pHudList;
+
+	m_Lensflare.SunEnabled = FALSE;
 
 	while (pList)
 	{

@@ -169,9 +169,9 @@ private:
 #define FADE_TIME 100
 
 
-//
-//-----------------------------------------------------
-//
+//=====================================================
+// Geiger
+//=====================================================
 class CHudGeiger: public CHudBase
 {
 public:
@@ -185,9 +185,57 @@ private:
 
 };
 
-//
-//-----------------------------------------------------
-//
+//=====================================================
+// Lens Flare
+//=====================================================
+class CHudLensflare: public CHudBase
+{
+public:
+    int Init( void );
+    int VidInit( void );
+    int Draw(float flTime);
+    int MsgFunc_Lensflare(const char *pszName, int iSize, void *pbuf);
+    
+    int SunEnabled;
+    
+private:
+    int Sunanglex;
+    int Sunangley;
+    
+    int Sunadd[5];
+    
+    float flPlayerBlend;
+    float flPlayerBlend2;
+    float flPlayerBlend3;
+    float flPlayerBlend4;
+    float flPlayerBlend5;
+    float flPlayerBlend6;
+    
+    float Screenmx;
+    float Screenmy;
+    
+    float multi[10];
+    
+    int scale[10];
+    
+    int red[10];
+    int green[10];
+    int blue[10];
+    
+    char text[10];
+    float Lensx[10];
+    float Lensy[10];
+    
+    float Suncoordx;
+    float Suncoordy;
+    
+    float Sundistx;
+    float Sundisty;
+};
+
+//=====================================================
+// Train
+//=====================================================
 class CHudTrain: public CHudBase
 {
 public:
@@ -346,30 +394,6 @@ private:
 //-----------------------------------------------------
 //
 class CHudFlashlight: public CHudBase
-{
-public:
-	int Init( void );
-	int VidInit( void );
-	int Draw(float flTime);
-	void Reset( void );
-	int MsgFunc_Flashlight(const char *pszName,  int iSize, void *pbuf );
-	int MsgFunc_FlashBat(const char *pszName,  int iSize, void *pbuf );
-	
-private:
-	HSPRITE m_hSprite1;
-	HSPRITE m_hSprite2;
-	HSPRITE m_hBeam;
-	wrect_t *m_prc1;
-	wrect_t *m_prc2;
-	wrect_t *m_prcBeam;
-	float m_flBat;	
-	int	  m_iBat;	
-	int	  m_fOn;
-	float m_fFade;
-	int	  m_iWidth;		// width of the battery innards
-};
-
-class CGraininess: public CHudBase
 {
 public:
 	int Init( void );
@@ -597,6 +621,8 @@ public:
 	int DrawHudNumberString( int xpos, int ypos, int iMinX, int iNumber, int r, int g, int b );
 	int GetNumWidth(int iNumber, int iFlags);
 
+	int viewFlags;
+
 private:
 	// the memory for these arrays are allocated in the first call to CHud::VidInit(), when the hud.txt and associated sprites are loaded.
 	// freed in ~CHud()
@@ -634,6 +660,7 @@ public:
 	CHudAmmoSecondary	m_AmmoSecondary;
 	CHudTextMessage m_TextMessage;
 	CHudStatusIcons m_StatusIcons;
+	CHudLensflare m_Lensflare;
 	CHudBenchmark	m_Benchmark;
 
 	void Init( void );

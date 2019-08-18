@@ -14,12 +14,9 @@
 #include "pm_shared.h"
 #include "bench.h"
 #include "Exports.h"
-#include "eventscripts.h" // Step4enko
-#include "event_args.h"
-
-#include "in_defs.h" // Step4enko
 
 #include "particleman.h"
+
 extern IParticleMan *g_pParticleMan;
 
 void Game_AddObjects( void );
@@ -351,37 +348,33 @@ void CL_DLLEXPORT HUD_StudioEvent( const struct mstudioevent_s *event, const str
 
 	switch( event->event )
 	{
+	// Step4enko: MuzzleFlash #1.
 	case 5001:
 		if ( iMuzzleFlash )
 			gEngfuncs.pEfxAPI->R_MuzzleFlash( (float *)&entity->attachment[0], atoi( event->options) );
 		break;
+	// Step4enko: MuzzleFlash #2.
 	case 5011:
 		if ( iMuzzleFlash )
 			gEngfuncs.pEfxAPI->R_MuzzleFlash( (float *)&entity->attachment[1], atoi( event->options) );
 		break;
+	// Step4enko: MuzzleFlash #3.
 	case 5021:
 		if ( iMuzzleFlash )
 			gEngfuncs.pEfxAPI->R_MuzzleFlash( (float *)&entity->attachment[2], atoi( event->options) );
 		break;
+	// Step4enko: MuzzleFlash #4.
 	case 5031:
 		if ( iMuzzleFlash )
 			gEngfuncs.pEfxAPI->R_MuzzleFlash( (float *)&entity->attachment[3], atoi( event->options) );
 		break;
-	// Step4enko: Blue muzzle flash.
-	case 5041:
-		if ( iMuzzleFlash )
-			gEngfuncs.pEfxAPI->R_MuzzleFlash( (float *)&entity->attachment[4], atoi( event->options) );
-		break;
+	// Step4enko: Spark effect.
 	case 5002:
 		gEngfuncs.pEfxAPI->R_SparkEffect( (float *)&entity->attachment[0], atoi( event->options), -100, 100 );
 		break;
-	// Client side sound
+	// Step4enko: Client side sound.
 	case 5004:		
 		gEngfuncs.pfnPlaySoundByNameAtLocation( (char *)event->options, 1.0, (float *)&entity->attachment[0] );
-		break;
-	// Step4enko: Client side shotgun shells.
-	case 5077:
-        //UNDONE
 		break;
 	default:
 		break;

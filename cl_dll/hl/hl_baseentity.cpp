@@ -55,6 +55,7 @@ int CBaseEntity::ShouldToggle( USE_TYPE useType, BOOL currentState ) { return 0;
 int	CBaseEntity :: DamageDecal( int bitsDamageType ) { return -1; }
 CBaseEntity * CBaseEntity::Create( char *szName, const Vector &vecOrigin, const Vector &vecAngles, edict_t *pentOwner ) { return NULL; }
 void CBaseEntity::SUB_Remove( void ) { }
+void CBaseEntity :: SetNextThink( float delay, BOOL correctSpeed ) { }
 
 // CBaseDelay Stubs
 void CBaseDelay :: KeyValue( struct KeyValueData_s * ) { }
@@ -77,6 +78,7 @@ void UTIL_GunshotDecalTrace( TraceResult *pTrace, int decalNumber ) { }
 void UTIL_MakeVectors( const Vector &vecAngles ) { }
 BOOL UTIL_IsValidEntity( edict_t *pent ) { return TRUE; }
 void UTIL_SetOrigin( entvars_t *, const Vector &org ) { }
+void UTIL_SetOriginSoHL( CBaseEntity* pEntity, const Vector &vecOrigin ) { }
 BOOL UTIL_GetNextBestWeapon( CBasePlayer *pPlayer, CBasePlayerItem *pCurrentWeapon ) { return TRUE; }
 void UTIL_LogPrintf(char *,...) { }
 void UTIL_ClientPrintAll( int,char const *,char const *,char const *,char const *,char const *) { }
@@ -96,21 +98,6 @@ void CGrenade::Spawn( void ) { }
 CGrenade * CGrenade:: ShootTimed( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity, float time ){ return 0; }
 CGrenade *CGrenade::ShootContact( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity ){ return 0; }
 void CGrenade::DetonateUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value ){ }
-
-// Step4enko
-void CBaseEntity :: AbsoluteNextThink( float time, BOOL correctSpeed ) { }
-void CBaseEntity :: SetNextThink( float delay, BOOL correctSpeed ) { }
-void UTIL_Sparks( const Vector &position )
-{
-	MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, position );
-		WRITE_BYTE( TE_SPARKS );
-		WRITE_COORD( position.x );
-		WRITE_COORD( position.y );
-		WRITE_COORD( position.z );
-	MESSAGE_END();
-}
-
-void CBaseMonster :: StepSound( void ) { }
 
 void UTIL_Remove( CBaseEntity *pEntity ){ }
 struct skilldata_t  gSkillData;
@@ -251,6 +238,7 @@ int CBaseMonster :: TakeHealth (float flHealth, int bitsDamageType) { return 0; 
 int CBaseMonster :: TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType ) { return 0; }
 int CBaseMonster::Restore( class CRestore & ) { return 1; }
 int CBaseMonster::Save( class CSave & ) { return 1; }
+void CBaseMonster :: StepSound ( void ) { }
 
 int TrainSpeed(int iSpeed, int iMax) { 	return 0; }
 void CBasePlayer :: DeathSound( void ) { }
@@ -359,5 +347,6 @@ void CBasePlayerAmmo :: DefaultTouch( CBaseEntity *pOther ) { }
 int CBasePlayerWeapon::ExtractAmmo( CBasePlayerWeapon *pWeapon ) { return 0; }
 int CBasePlayerWeapon::ExtractClipAmmo( CBasePlayerWeapon *pWeapon ) { return 0; }	
 void CBasePlayerWeapon::RetireWeapon( void ) { }
+void CBasePlayerWeapon::KeyValue( KeyValueData *pkvd ) { }
 void CSoundEnt::InsertSound ( int iType, const Vector &vecOrigin, int iVolume, float flDuration ) {}
 void RadiusDamage( Vector vecSrc, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, float flRadius, int iClassIgnore, int bitsDamageType ){}

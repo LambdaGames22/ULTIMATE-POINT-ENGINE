@@ -22,7 +22,9 @@ extern "C"
 void EV_FireGlock1( struct event_args_s *args  );
 void EV_FireGlock2( struct event_args_s *args  );
 void EV_FireShotGunSingle( struct event_args_s *args  );
+void EV_FireShotGunSingleShell( struct event_args_s *args  );
 void EV_FireShotGunDouble( struct event_args_s *args  );
+void EV_FireShotGunDoubleShell( struct event_args_s *args  );
 void EV_FireMP5( struct event_args_s *args  );
 void EV_FireMP52( struct event_args_s *args  );
 void EV_FirePython( struct event_args_s *args  );
@@ -37,7 +39,6 @@ void EV_EgonStop( struct event_args_s *args );
 void EV_HornetGunFire( struct event_args_s *args );
 void EV_TripmineFire( struct event_args_s *args );
 void EV_SnarkFire( struct event_args_s *args );
-void EV_FireDeagle( struct event_args_s *args  );
 
 
 
@@ -62,7 +63,9 @@ void Game_HookEvents( void )
 	gEngfuncs.pfnHookEvent( "events/glock1.sc",					EV_FireGlock1 );
 	gEngfuncs.pfnHookEvent( "events/glock2.sc",					EV_FireGlock2 );
 	gEngfuncs.pfnHookEvent( "events/shotgun1.sc",				EV_FireShotGunSingle );
+	gEngfuncs.pfnHookEvent( "events/shotgun1sh.sc",				EV_FireShotGunSingleShell );
 	gEngfuncs.pfnHookEvent( "events/shotgun2.sc",				EV_FireShotGunDouble );
+	gEngfuncs.pfnHookEvent( "events/shotgun2sh.sc",				EV_FireShotGunDoubleShell );
 	gEngfuncs.pfnHookEvent( "events/mp5.sc",					EV_FireMP5 );
 	gEngfuncs.pfnHookEvent( "events/mp52.sc",					EV_FireMP52 );
 	gEngfuncs.pfnHookEvent( "events/python.sc",					EV_FirePython );
@@ -78,5 +81,4 @@ void Game_HookEvents( void )
 	gEngfuncs.pfnHookEvent( "events/firehornet.sc",				EV_HornetGunFire );
 	gEngfuncs.pfnHookEvent( "events/tripfire.sc",				EV_TripmineFire );
 	gEngfuncs.pfnHookEvent( "events/snarkfire.sc",				EV_SnarkFire );
-	gEngfuncs.pfnHookEvent( "events/eagle.sc",					EV_FireDeagle );
 }
