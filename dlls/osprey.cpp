@@ -30,7 +30,12 @@ typedef struct
 	Vector  vecAngles;
 } t_ospreygrunt;
 
-
+//=====================================================
+// Step4enko: TODO:
+// Osprey effect like in HL:E https://www.youtube.com/watch?v=4vKUdR8YFLM (1:17)
+// Custom Grunt Type
+// Custom Number of Grunts
+//=====================================================
 
 #define SF_WAITFORTRIGGER	0x40
 
