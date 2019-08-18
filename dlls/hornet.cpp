@@ -12,10 +12,10 @@
 *   without written permission from Valve LLC.
 *
 ****/
+
 //=========================================================
 // Hornets
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -153,7 +153,7 @@ int CHornet::IRelationship ( CBaseEntity *pTarget )
 //=========================================================
 int CHornet::Classify ( void )
 {
-
+	if (m_iClass) return m_iClass;
 	if ( pev->owner && pev->owner->v.flags & FL_CLIENT)
 	{
 		return CLASS_PLAYER_BIOWEAPON;
@@ -397,11 +397,13 @@ void CHornet::DartTouch( CBaseEntity *pOther )
 
 void CHornet::DieTouch ( CBaseEntity *pOther )
 {
-	if ( pOther && pOther->pev->takedamage )
-	{// do the damage
-
+	// Step4enko: Bugfixed.
+	if ( pOther && pOther->pev->takedamage && pev->owner )
+	{
+		// do the damage
 		switch (RANDOM_LONG(0,2))
-		{// buzz when you plug someone
+		{
+			// buzz when you plug someone
 			case 0:	EMIT_SOUND( ENT(pev), CHAN_VOICE, "hornet/ag_hornethit1.wav", 1, ATTN_NORM);	break;
 			case 1:	EMIT_SOUND( ENT(pev), CHAN_VOICE, "hornet/ag_hornethit2.wav", 1, ATTN_NORM);	break;
 			case 2:	EMIT_SOUND( ENT(pev), CHAN_VOICE, "hornet/ag_hornethit3.wav", 1, ATTN_NORM);	break;

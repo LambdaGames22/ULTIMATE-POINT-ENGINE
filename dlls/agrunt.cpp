@@ -12,10 +12,10 @@
 *   use or distribution of this code by or to any unlicensed person is illegal.
 *
 ****/
+
 //=========================================================
 // Agrunt - Dominant, warlike alien grunt monster
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -25,6 +25,7 @@
 #include	"weapons.h"
 #include	"soundent.h"
 #include	"hornet.h"
+#include	"agrunt.h" // Step4enko
 
 //=========================================================
 // monster-specific schedule types
@@ -68,60 +69,6 @@ int iAgruntMuzzleFlash;
 
 #define		AGRUNT_MELEE_DIST	100
 
-class CAGrunt : public CSquadMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	void SetYawSpeed ( void );
-	int  Classify ( void );
-	int  ISoundMask ( void );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-	void SetObjectCollisionBox( void )
-	{
-		pev->absmin = pev->origin + Vector( -32, -32, 0 );
-		pev->absmax = pev->origin + Vector( 32, 32, 85 );
-	}
-
-	Schedule_t* GetSchedule ( void );
-	Schedule_t* GetScheduleOfType ( int Type );
-	BOOL FCanCheckAttacks ( void );
-	BOOL CheckMeleeAttack1 ( float flDot, float flDist );
-	BOOL CheckRangeAttack1 ( float flDot, float flDist );
-	void StartTask ( Task_t *pTask );
-	void AlertSound( void );
-	void DeathSound ( void );
-	void PainSound ( void );
-	void AttackSound ( void );
-	void PrescheduleThink ( void );
-	void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType);
-	int IRelationship( CBaseEntity *pTarget );
-	void StopTalking ( void );
-	BOOL ShouldSpeak( void );
-	CUSTOM_SCHEDULES;
-
-	virtual int		Save( CSave &save );
-	virtual int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	static const char *pAttackHitSounds[];
-	static const char *pAttackMissSounds[];
-	static const char *pAttackSounds[];
-	static const char *pDieSounds[];
-	static const char *pPainSounds[];
-	static const char *pIdleSounds[];
-	static const char *pAlertSounds[];
-
-	BOOL	m_fCanHornetAttack;
-	float	m_flNextHornetAttackCheck;
-
-	float m_flNextPainTime;
-
-	// three hacky fields for speech stuff. These don't really need to be saved.
-	float	m_flNextSpeakTime;
-	float	m_flNextWordTime;
-	int		m_iLastWord;
-};
 LINK_ENTITY_TO_CLASS( monster_alien_grunt, CAGrunt );
 
 TYPEDESCRIPTION	CAGrunt::m_SaveData[] = 
@@ -389,7 +336,7 @@ void CAGrunt :: PainSound ( void )
 //=========================================================
 int	CAGrunt :: Classify ( void )
 {
-	return	CLASS_ALIEN_MILITARY;
+	return m_iClass?m_iClass:CLASS_ALIEN_MILITARY;
 }
 
 //=========================================================
@@ -482,6 +429,10 @@ void CAGrunt :: HandleAnimEvent( MonsterEvent_t *pEvent )
 			}
 
 			CBaseMonster *pHornetMonster = pHornet->MyMonsterPointer();
+
+			pHornetMonster->m_iClass = m_iClass;
+			if (m_afMemory & bits_MEMORY_PROVOKED) // if I'm mad at the player, so are my hornets
+				pHornetMonster->Remember(bits_MEMORY_PROVOKED);
 
 			if ( pHornetMonster )
 			{
@@ -1196,4 +1147,3 @@ Schedule_t* CAGrunt :: GetScheduleOfType ( int Type )
 
 	return CSquadMonster :: GetScheduleOfType( Type );
 }
-

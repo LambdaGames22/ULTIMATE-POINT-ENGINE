@@ -15,9 +15,8 @@
 ****/
 
 //=========================================================
-// Houndeye - spooky sonic dog. 
+// Houndeye 
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -29,12 +28,13 @@
 #include	"soundent.h"
 #include	"game.h"
 #include	"defaultai.h" // Step4enko
+#include	"houndeye.h" // Step4enko
 
 extern CGraph WorldGraph;
 
 // houndeye does 20 points of damage spread over a sphere 384 units in diameter, and each additional 
 // squad member increases the BASE damage by 110%, per the spec.
-#define HOUNDEYE_LIMP_HEALTH			35 // Step4enko
+#define HOUNDEYE_LIMP_HEALTH			20 // Step4enko
 #define HOUNDEYE_MAX_SQUAD_SIZE			4
 #define	HOUNDEYE_MAX_ATTACK_RADIUS		384
 #define	HOUNDEYE_SQUAD_BONUS			(float)1.1
@@ -54,7 +54,7 @@ enum
 	TASK_HOUND_FALL_ASLEEP,
 	TASK_HOUND_WAKE_UP,
 	TASK_HOUND_HOP_BACK,
-	TASK_HOUND_GET_PATH_TO_ENEMY_CORPSE
+	TASK_HOUND_SMELLFOOD,
 };
 
 //=========================================================
@@ -65,6 +65,9 @@ enum
 	SCHED_HOUND_AGITATED = LAST_COMMON_SCHEDULE + 1,
 	SCHED_HOUND_HOP_RETREAT,
 	SCHED_HOUND_FAIL,
+	SCHED_HOUND_SMELLFOOD,
+	SCHED_HOUND_EAT,
+	SCHED_HOUND_SNIFF_AND_EAT,
 };
 
 //=========================================================
@@ -83,46 +86,7 @@ enum
 #define		HOUND_AE_SMELL_FOOD		    4
 #define		HOUND_AE_EAT				5
 
-class CHoundeye : public CSquadMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	int  Classify ( void );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-	void SetYawSpeed ( void );
-	void WarmUpSound ( void );
-	void AlertSound( void );
-	void DeathSound( void );
-	void WarnSound( void );
-	void PainSound( void );
-	void IdleSound( void );
-	void StartTask( Task_t *pTask );
-	void RunTask ( Task_t *pTask );
-	void SonicAttack( void );
-	void PrescheduleThink( void );
-	void SetActivity ( Activity NewActivity );
-	void WriteBeamColor ( void );
 
-	BOOL CheckRangeAttack1 ( float flDot, float flDist );
-	BOOL FValidateHintType ( short sHint );
-	BOOL FCanActiveIdle ( void );
-	Schedule_t *GetScheduleOfType ( int Type );
-	Schedule_t *CHoundeye :: GetSchedule( void );
-
-	int	Save( CSave &save ); 
-	int Restore( CRestore &restore );
-
-	CUSTOM_SCHEDULES;
-	static TYPEDESCRIPTION m_SaveData[];
-
-	int m_iSpriteTexture;
-	int		m_iMode; // SAVE RESTORE NEED?
-
-	BOOL m_fAsleep;// some houndeyes sleep in idle mode if this is set, the houndeye is lying down
-	BOOL m_fDontBlink;// don't try to open/close eye if this bit is set!
-	Vector	m_vecPackCenter; // the center of the pack. The leader maintains this by averaging the origins of all pack members.
-};
 LINK_ENTITY_TO_CLASS( monster_houndeye, CHoundeye );
 
 TYPEDESCRIPTION	CHoundeye::m_SaveData[] = 
@@ -136,12 +100,27 @@ TYPEDESCRIPTION	CHoundeye::m_SaveData[] =
 IMPLEMENT_SAVERESTORE( CHoundeye, CSquadMonster );
 
 //=========================================================
+// ISoundMask - returns a bit mask indicating which types
+// of sounds this monster regards. In the base class implementation,
+// monsters care about all sounds, but no scents.
+//=========================================================
+int CHoundeye :: ISoundMask ( void )
+{
+	return	bits_SOUND_WORLD	|
+			bits_SOUND_COMBAT	|
+			bits_SOUND_CARCASS	|
+			bits_SOUND_MEAT		|
+			bits_SOUND_GARBAGE	|
+			bits_SOUND_PLAYER;
+}
+
+//=========================================================
 // Classify - indicates this monster's place in the 
 // relationship table.
 //=========================================================
 int	CHoundeye :: Classify ( void )
 {
-	return CLASS_ALIEN_MONSTER;
+	return m_iClass?m_iClass:CLASS_ALIEN_MONSTER;
 }
 
 //=========================================================
@@ -296,6 +275,22 @@ void CHoundeye :: SetActivity ( Activity NewActivity )
 }
 
 //=========================================================
+// IgnoreConditions 
+//=========================================================
+int CHoundeye::IgnoreConditions ( void )
+{
+	int iIgnore = CBaseMonster::IgnoreConditions();
+
+	// Step4enko
+	if ( m_hEnemy != NULL )
+	{
+		iIgnore = bits_COND_SMELL | bits_COND_SMELL_FOOD;
+	}
+
+	return iIgnore;
+}
+
+//=========================================================
 // HandleAnimEvent - catches the monster-specific messages
 // that occur when tagged animation frames are played.
 //=========================================================
@@ -389,7 +384,7 @@ void CHoundeye :: Spawn()
 void CHoundeye :: Precache()
 {
 	if (pev->model)
-		PRECACHE_MODEL((char*)STRING(pev->model)); //LRC
+		PRECACHE_MODEL((char*)STRING(pev->model));
 	else
 		PRECACHE_MODEL("models/houndeye.mdl");
 
@@ -626,7 +621,7 @@ void CHoundeye :: SonicAttack ( void )
 	}
 
 	// Step4enko
-	UTIL_ScreenShake( pev->origin, 12.0, 100.0, 2.0, 400 );
+	UTIL_ScreenShake( pev->origin, 11.0, 300.0, 1.00, 1000.0 );
 
 	// Step4enko
 	Vector vecSrc2 = pev->origin + gpGlobals->v_forward * 2;
@@ -780,22 +775,6 @@ void CHoundeye :: StartTask ( Task_t *pTask )
 			break;
 		}
 
-	// Step4enko
-	case TASK_HOUND_GET_PATH_TO_ENEMY_CORPSE:
-		{
-			UTIL_MakeVectors( pev->angles );
-			if ( BuildRoute ( m_vecEnemyLKP - gpGlobals->v_forward * 50, bits_MF_TO_LOCATION, NULL ) )
-			{
-				TaskComplete();
-			}
-			else
-			{
-				ALERT ( at_aiconsole, "HoundeyeGetPathToEnemyCorpse failed!!\n" );
-				TaskFail();
-			}
-		}
-		break;
-
 	case TASK_HOUND_THREAT_DISPLAY:
 		{
 			m_IdealActivity = ACT_IDLE_ANGRY;
@@ -810,7 +789,6 @@ void CHoundeye :: StartTask ( Task_t *pTask )
 		{
 			m_IdealActivity = ACT_RANGE_ATTACK1;
             pev->framerate = 2.5;
-
 /*
 			if ( InSquad() )
 			{
@@ -927,7 +905,6 @@ void CHoundeye :: RunTask ( Task_t *pTask )
 				SonicAttack(); 
 				TaskComplete();
 			}
-
 			break;
 		}
 	default:
@@ -1079,33 +1056,6 @@ Schedule_t	slHoundSleep[] =
 	},
 };
 
-//=========================================================
-// Victory dance!
-//=========================================================
-Task_t	tlHoundEat[] =
-{
-	{ TASK_SET_FAIL_SCHEDULE,				(float)0	                },
-	{ TASK_WAIT,							(float)0.2					},
-	{ TASK_HOUND_GET_PATH_TO_ENEMY_CORPSE,	(float)0					},
-	{ TASK_WALK_PATH,						(float)0					},
-	{ TASK_WAIT_FOR_MOVEMENT,				(float)0					},
-	{ TASK_FACE_ENEMY,						(float)0					},
-	{ TASK_PLAY_SEQUENCE,		            (float)ACT_VICTORY_DANCE	},
-};
-
-Schedule_t	slHoundEat[] =
-{
-	{ 
-		tlHoundEat,
-		ARRAYSIZE ( tlHoundEat ), 
-		bits_COND_NEW_ENEMY		|
-		bits_COND_LIGHT_DAMAGE	|
-		bits_COND_HEAVY_DAMAGE,
-		0,
-		"HoundEat"
-	},
-};
-
 // wake and stand up lazily
 Task_t	tlHoundWakeLazy[] =
 {
@@ -1252,6 +1202,80 @@ Schedule_t	slHoundCombatFailNoPVS[] =
 	},
 };
 
+// Houndeye walks to something tasty and eats it.
+Task_t tlHoundEat[] =
+{
+	{ TASK_STOP_MOVING,				(float)0				},
+	{ TASK_EAT,						(float)10				},// this is in case the houndeye can't get to the food
+	{ TASK_STORE_LASTPOSITION,		(float)0				},
+	{ TASK_GET_PATH_TO_BESTSCENT,	(float)0				},
+	{ TASK_WALK_PATH,				(float)0				},
+	{ TASK_WAIT_FOR_MOVEMENT,		(float)0				},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_EAT,						(float)50				},
+	{ TASK_GET_PATH_TO_LASTPOSITION,(float)0				},
+	{ TASK_WALK_PATH,				(float)0				},
+	{ TASK_WAIT_FOR_MOVEMENT,		(float)0				},
+	{ TASK_CLEAR_LASTPOSITION,		(float)0				},
+};
+
+Schedule_t slHoundEat[] =
+{
+	{
+		tlHoundEat,
+		ARRAYSIZE( tlHoundEat ),
+		bits_COND_LIGHT_DAMAGE	|
+		bits_COND_HEAVY_DAMAGE	|
+		bits_COND_NEW_ENEMY	,
+		
+		// even though HEAR_SOUND/SMELL FOOD doesn't break this schedule, we need this mask
+		// here or the monster won't detect these sounds at ALL while running this schedule.
+		bits_SOUND_MEAT			|
+		bits_SOUND_CARCASS,
+		"HoundEat"
+	}
+};
+
+// this is a bit different than just Eat. We use this schedule when the food is far away, occluded, or behind
+// the houndeye. This schedule plays a sniff animation before going to the source of food.
+Task_t tlHoundSniffAndEat[] =
+{
+	{ TASK_STOP_MOVING,				(float)0				},
+	{ TASK_EAT,						(float)10				},// this is in case the houndeye can't get to the food
+	//{ TASK_PLAY_SEQUENCE,			(float)ACT_DETECT_SCENT },
+	{ TASK_STORE_LASTPOSITION,		(float)0				},
+	{ TASK_GET_PATH_TO_BESTSCENT,	(float)0				},
+	{ TASK_WALK_PATH,				(float)0				},
+	{ TASK_WAIT_FOR_MOVEMENT,		(float)0				},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_PLAY_SEQUENCE,			(float)ACT_EAT			},
+	{ TASK_EAT,						(float)50				},
+	{ TASK_GET_PATH_TO_LASTPOSITION,(float)0				},
+	{ TASK_WALK_PATH,				(float)0				},
+	{ TASK_WAIT_FOR_MOVEMENT,		(float)0				},
+	{ TASK_CLEAR_LASTPOSITION,		(float)0				},
+};
+
+Schedule_t slHoundSniffAndEat[] =
+{
+	{
+		tlHoundSniffAndEat,
+		ARRAYSIZE( tlHoundSniffAndEat ),
+		bits_COND_LIGHT_DAMAGE	|
+		bits_COND_HEAVY_DAMAGE	|
+		bits_COND_NEW_ENEMY	,
+		
+		// even though HEAR_SOUND/SMELL FOOD doesn't break this schedule, we need this mask
+		// here or the monster won't detect these sounds at ALL while running this schedule.
+		bits_SOUND_MEAT			|
+		bits_SOUND_CARCASS,
+		"HoundSniffAndEat"
+	}
+};
+
 DEFINE_CUSTOM_SCHEDULES( CHoundeye )
 {
 	slHoundGuardPack,
@@ -1265,7 +1289,9 @@ DEFINE_CUSTOM_SCHEDULES( CHoundeye )
 	slHoundHopRetreat,
 	slHoundCombatFailPVS,
 	slHoundCombatFailNoPVS,
-	slHoundEat, // Step4enko
+	slHoundEat,
+	slHoundSniffAndEat,
+
 };
 
 IMPLEMENT_CUSTOM_SCHEDULES( CHoundeye, CSquadMonster );
@@ -1357,10 +1383,6 @@ Schedule_t* CHoundeye :: GetScheduleOfType ( int Type )
 			return &slHoundHopRetreat[ 0 ];
 		}
 
-	case SCHED_VICTORY_DANCE:
-		return &slHoundEat[ 0 ];
-		break;
-
 	case SCHED_FAIL:
 		{
 			if ( m_MonsterState == MONSTERSTATE_COMBAT )
@@ -1381,6 +1403,12 @@ Schedule_t* CHoundeye :: GetScheduleOfType ( int Type )
 				return CSquadMonster :: GetScheduleOfType ( Type );
 			}
 		}
+	case SCHED_HOUND_EAT:
+		return &slHoundEat[ 0 ];
+		break;
+	case SCHED_HOUND_SNIFF_AND_EAT:
+		return &slHoundSniffAndEat[ 0 ];
+		break;
 	default:
 		{
 			return CSquadMonster :: GetScheduleOfType ( Type );
@@ -1395,9 +1423,27 @@ Schedule_t *CHoundeye :: GetSchedule( void )
 {
 	switch	( m_MonsterState )
 	{
+	case MONSTERSTATE_ALERT:
+		{
+			if ( HasConditions(bits_COND_SMELL_FOOD) )
+			{
+				CSound *pSound;
+				pSound = PBestScent();
+				
+				if ( pSound && (!FInViewCone ( &pSound->m_vecOrigin ) || !FVisible ( pSound->m_vecOrigin )) )
+				{
+					// scent is behind or occluded
+					return GetScheduleOfType( SCHED_HOUND_SNIFF_AND_EAT );
+				}
+
+				// food is right out in the open. Just go get it.
+				return GetScheduleOfType( SCHED_HOUND_EAT );
+			}
+			break;
+		}
 	case MONSTERSTATE_COMBAT:
 		{
-// dead enemy
+			// Dead enemy.
 			if ( HasConditions( bits_COND_ENEMY_DEAD ) )
 			{
 				// call base class, all code to handle dead enemies is centralized there.
@@ -1418,8 +1464,23 @@ Schedule_t *CHoundeye :: GetSchedule( void )
 						return GetScheduleOfType ( SCHED_HOUND_HOP_RETREAT );
 					}
 				}
-
 				return GetScheduleOfType ( SCHED_TAKE_COVER_FROM_ENEMY );
+			}
+
+			if ( HasConditions(bits_COND_SMELL_FOOD) )
+			{
+				CSound		*pSound;
+
+				pSound = PBestScent();
+				
+				if ( pSound && (!FInViewCone ( &pSound->m_vecOrigin ) || !FVisible ( pSound->m_vecOrigin )) )
+				{
+					// scent is behind or occluded
+					return GetScheduleOfType( SCHED_HOUND_SNIFF_AND_EAT );
+				}
+
+				// food is right out in the open. Just go get it.
+				return GetScheduleOfType( SCHED_HOUND_EAT );
 			}
 
 			if ( HasConditions( bits_COND_CAN_RANGE_ATTACK1 ) )

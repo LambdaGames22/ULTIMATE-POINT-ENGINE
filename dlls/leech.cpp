@@ -181,21 +181,17 @@ const char *CLeech::pAlertSounds[] =
 void CLeech::Spawn( void )
 {
 	Precache();
-
-	if (pev->model)
-		SET_MODEL(ENT(pev), STRING(pev->model));
-	else
-		SET_MODEL(ENT(pev), "models/leech.mdl");
-
-	if (pev->health == 0)
-		pev->health			= gSkillData.leechHealth;
+	SET_MODEL(ENT(pev), "models/leech.mdl");
+	// Just for fun
+	//	SET_MODEL(ENT(pev), "models/icky.mdl");
 	
+//	UTIL_SetSize( pev, g_vecZero, g_vecZero );
 	UTIL_SetSize( pev, Vector(-1,-1,0), Vector(1,1,2));
-
 	// Don't push the minz down too much or the water check will fail because this entity is really point-sized
 	pev->solid			= SOLID_SLIDEBOX;
 	pev->movetype		= MOVETYPE_FLY;
 	SetBits(pev->flags, FL_SWIM);
+	pev->health			= gSkillData.leechHealth;
 
 	m_flFieldOfView		= -0.5;	// 180 degree FOV
 	m_flDistLook		= 750;
@@ -298,10 +294,8 @@ void CLeech::Precache( void )
 {
 	int i;
 
-	if (pev->model)
-		PRECACHE_MODEL((char*)STRING(pev->model));
-	else
-		PRECACHE_MODEL("models/leech.mdl");
+	//PRECACHE_MODEL("models/icky.mdl");
+	PRECACHE_MODEL("models/leech.mdl");
 
 	for ( i = 0; i < ARRAYSIZE( pAttackSounds ); i++ )
 		PRECACHE_SOUND((char *)pAttackSounds[i]);

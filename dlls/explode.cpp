@@ -151,12 +151,6 @@ void CEnvExplosion::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE
 { 
 	TraceResult tr;
 
-	// Step4enko
-	UTIL_ScreenShake( pev->origin, 12.0, 100.0, 2.0, 1000 );
-
-	// Step4enko
-	UTIL_TrueExplosionDlight( pev );
-
 	pev->model = iStringNull;//invisible
 	pev->solid = SOLID_NOT;// intangible
 

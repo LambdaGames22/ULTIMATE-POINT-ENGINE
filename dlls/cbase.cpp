@@ -20,9 +20,7 @@
 #include	"decals.h"
 #include	"gamerules.h"
 #include	"game.h"
-#include	"skill.h" // Step4enko
-
-CWorld *g_pWorld = NULL; // LRC
+#include	"skill.h"
 
 void EntvarsKeyvalue( entvars_t *pev, KeyValueData *pkvd );
 
@@ -126,67 +124,6 @@ int GetEntityAPI2( DLL_FUNCTIONS *pFunctionTable, int *interfaceVersion )
 	return TRUE;
 }
 
-}
-
-
-int DispatchSpawn( edict_t *pent )
-{
-	CBaseEntity *pEntity = (CBaseEntity *)GET_PRIVATE(pent);
-
-	if (pEntity)
-	{
-		// Initialize these or entities who don't link to the world won't have anything in here
-		pEntity->pev->absmin = pEntity->pev->origin - Vector(1,1,1);
-		pEntity->pev->absmax = pEntity->pev->origin + Vector(1,1,1);
-
-		pEntity->Spawn();
-
-		// Try to get the pointer again, in case the spawn function deleted the entity.
-		// UNDONE: Spawn() should really return a code to ask that the entity be deleted, but
-		// that would touch too much code for me to do that right now.
-		pEntity = (CBaseEntity *)GET_PRIVATE(pent);
-
-		if ( pEntity )
-		{
-			// Step4enko: Spawn monsters only on EASY / MEDIUM / HARD
-			pEntity->pev->colormap = ENTINDEX(pent);
-			if ( g_pGameRules && !g_pGameRules->IsAllowedToSpawn( pEntity ) )
-				return -1;	// return that this entity should be deleted
-			if ( pEntity->pev->flags & FL_KILLME )
-				return -1;
-			if ( g_iSkillLevel == SKILL_EASY && pEntity->m_iLFlags & LF_NOTEASY )
-				return -1;
-			if (g_iSkillLevel == SKILL_MEDIUM && pEntity->m_iLFlags & LF_NOTMEDIUM )
-				return -1;
-			if (g_iSkillLevel == SKILL_HARD && pEntity->m_iLFlags & LF_NOTHARD )
-				return -1;
-		}
-
-
-		// Handle global stuff here
-		if ( pEntity && pEntity->pev->globalname ) 
-		{
-			const globalentity_t *pGlobal = gGlobalState.EntityFromTable( pEntity->pev->globalname );
-			if ( pGlobal )
-			{
-				// Already dead? delete
-				if ( pGlobal->state == GLOBAL_DEAD )
-					return -1;
-				else if ( !FStrEq( STRING(gpGlobals->mapname), pGlobal->levelName ) )
-					pEntity->MakeDormant();	// Hasn't been moved to this level yet, wait but stay alive
-				// In this level & not dead, continue on as normal
-			}
-			else
-			{
-				// Spawned entities default to 'On'
-				gGlobalState.EntityAdd( pEntity->pev->globalname, gpGlobals->mapname, GLOBAL_ON );
-//				ALERT( at_console, "Added global entity %s (%s)\n", STRING(pEntity->pev->classname), STRING(pEntity->pev->globalname) );
-			}
-		}
-
-	}
-
-	return 0;
 }
 
 void DispatchKeyValue( edict_t *pentKeyvalue, KeyValueData *pkvd )
@@ -500,6 +437,22 @@ CBaseEntity * EHANDLE :: operator -> ()
 	return (CBaseEntity *)GET_PRIVATE( Get( ) ); 
 }
 
+void CBaseEntity :: SetNextThink( float delay, BOOL correctSpeed )
+{
+	// set nextthink as normal.
+	if (pev->movetype == MOVETYPE_PUSH)
+	{
+		pev->nextthink = pev->ltime + delay;
+	}
+	else
+	{
+		pev->nextthink = gpGlobals->time + delay;
+	}
+
+	m_fPevNextThink = m_fNextThink = pev->nextthink;
+
+//	if (pev->classname) ALERT(at_console, "SetNormThink for %s: %f\n", STRING(pev->targetname), m_fNextThink);
+}
 
 // give health
 int CBaseEntity :: TakeHealth( float flHealth, int bitsDamageType )
@@ -600,6 +553,10 @@ TYPEDESCRIPTION	CBaseEntity::m_SaveData[] =
 	DEFINE_FIELD( CBaseEntity, m_pfnTouch, FIELD_FUNCTION ),
 	DEFINE_FIELD( CBaseEntity, m_pfnUse, FIELD_FUNCTION ),
 	DEFINE_FIELD( CBaseEntity, m_pfnBlocked, FIELD_FUNCTION ),
+
+	DEFINE_FIELD( CBaseEntity, m_iLFlags, FIELD_INTEGER ), // LRC
+	DEFINE_FIELD( CBaseEntity, m_fNextThink, FIELD_TIME ), // LRC
+	DEFINE_FIELD( CBaseEntity, m_fPevNextThink, FIELD_TIME ), // LRC
 };
 
 
@@ -680,91 +637,6 @@ void CBaseEntity::SetObjectCollisionBox( void )
 	::SetObjectCollisionBox( pev );
 }
 
-//LRC
-void CBaseEntity::DontThink( void )
-{
-	m_fNextThink = 0;
-	if (m_pMoveWith == NULL && m_pChildMoveWith == NULL)
-	{
-		pev->nextthink = 0;
-		m_fPevNextThink = 0;
-	}
-
-//	ALERT(at_console, "DontThink for %s\n", STRING(pev->targetname));
-}
-
-//LRC
-void CBaseEntity :: AbsoluteNextThink( float time, BOOL correctSpeed )
-{
-	if (m_pMoveWith || m_pChildMoveWith)
-	{
-		// use the Assist system, so that thinking doesn't mess up movement.
-		m_fNextThink = time;
-		SetEternalThink( );
-		UTIL_MarkForAssist( this, correctSpeed );
-	}
-	else
-	{
-		// set nextthink as normal.
-		pev->nextthink = time;
-		m_fPevNextThink = m_fNextThink = pev->nextthink;
-	}
-}
-
-//LRC - for getting round the engine's preconceptions.
-// MoveWith entities have to be able to think independently of moving.
-// This is how we do so.
-void CBaseEntity :: SetNextThink( float delay, BOOL correctSpeed )
-{
-	// now monsters use this method, too.
-	if (m_pMoveWith || m_pChildMoveWith || pev->flags & FL_MONSTER)
-	{
-		// use the Assist system, so that thinking doesn't mess up movement.
-		if (pev->movetype == MOVETYPE_PUSH)
-			m_fNextThink = pev->ltime + delay;
-		else
-			m_fNextThink = gpGlobals->time + delay;
-		SetEternalThink( );
-		UTIL_MarkForAssist( this, correctSpeed );
-
-//		ALERT(at_console, "SetAssistedThink for %s: %f\n", STRING(pev->targetname), m_fNextThink);
-	}
-	else
-	{
-		// set nextthink as normal.
-		if (pev->movetype == MOVETYPE_PUSH)
-		{
-			pev->nextthink = pev->ltime + delay;
-		}
-		else
-		{
-			pev->nextthink = gpGlobals->time + delay;
-		}
-
-		m_fPevNextThink = m_fNextThink = pev->nextthink;
-
-//		if (pev->classname) ALERT(at_console, "SetNormThink for %s: %f\n", STRING(pev->targetname), m_fNextThink);
-	}
-}
-
-//LRC
-// PUSH entities won't have their velocity applied unless they're thinking.
-// make them do so for the foreseeable future.
-void CBaseEntity :: SetEternalThink( void )
-{
-	if (pev->movetype == MOVETYPE_PUSH)
-	{
-		// record m_fPevNextThink as well, because we want to be able to
-		// tell when the bloody engine CHANGES IT!
-//		pev->nextthink = 1E9;
-		pev->nextthink = pev->ltime + 1E6;
-		m_fPevNextThink = pev->nextthink;
-	}
-
-	CBaseEntity *pChild;
-	for (pChild = m_pChildMoveWith; pChild != NULL; pChild = pChild->m_pSiblingMoveWith)
-		pChild->SetEternalThink( );
-}
 
 int	CBaseEntity :: Intersects( CBaseEntity *pOther )
 {
@@ -799,22 +671,15 @@ int CBaseEntity :: IsDormant( void )
 	return FBitSet( pev->flags, FL_DORMANT );
 }
 
-/*
-Step4enko: First time i experemented with these and DELTA.LST to make 65536x65536x65536 map size support. 
-It was succeed but i started get less than 30FPS on my maps (My PC is very powerful). 
-So i disabled all support. I can't allow players to play Ultimate Point with such low FPS value.
-Unfortunately, i don't have full engine source code to optimize it. 
-Topic is closed until someone will force me to buy GoldSource's source files.
-*/
 BOOL CBaseEntity :: IsInWorld( void )
 {
-	// position 
-	if (pev->origin.x >= 4096) return FALSE;
-	if (pev->origin.y >= 4096) return FALSE;
-	if (pev->origin.z >= 4096) return FALSE;
-	if (pev->origin.x <= -4096) return FALSE;
-	if (pev->origin.y <= -4096) return FALSE;
-	if (pev->origin.z <= -4096) return FALSE;
+	// Step4enko: +/-131072 map size support.  
+	if (pev->origin.x >= 131072) return FALSE;
+	if (pev->origin.y >= 131072) return FALSE;
+	if (pev->origin.z >= 131072) return FALSE;
+	if (pev->origin.x <= -131072) return FALSE;
+	if (pev->origin.y <= -131072) return FALSE;
+	if (pev->origin.z <= -131072) return FALSE;
 	// speed
 	if (pev->velocity.x >= 2000) return FALSE;
 	if (pev->velocity.y >= 2000) return FALSE;
@@ -836,6 +701,25 @@ int CBaseEntity::ShouldToggle( USE_TYPE useType, BOOL currentState )
 	return 1;
 }
 
+BOOL CBaseEntity::ShouldToggle( USE_TYPE useType )
+{
+	STATE currentState = GetState();
+	if ( useType != USE_TOGGLE && useType != USE_SET )
+	{
+		switch(currentState)
+		{
+		case STATE_ON:
+		case STATE_TURN_ON:
+			if (useType == USE_ON) return FALSE;
+			break;
+		case STATE_OFF:
+		case STATE_TURN_OFF:
+			if (useType == USE_OFF) return FALSE;
+			break;
+		}
+	}
+	return TRUE;
+}
 
 int	CBaseEntity :: DamageDecal( int bitsDamageType )
 {
@@ -847,6 +731,8 @@ int	CBaseEntity :: DamageDecal( int bitsDamageType )
 
 	return DECAL_GUNSHOT1 + RANDOM_LONG(0,4);
 }
+
+
 
 // NOTE: szName must be a pointer to constant memory, e.g. "monster_class" because the entity
 // will keep a pointer to it after this call.

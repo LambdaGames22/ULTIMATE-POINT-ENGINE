@@ -25,6 +25,9 @@
 
 extern DLL_GLOBAL	short	g_sModelIndexFireball;
 extern DLL_GLOBAL	short	g_sModelIndexSmoke;
+extern DLL_GLOBAL	short	DebrisModel;
+extern DLL_GLOBAL	short	g_sModelIndexAE;
+extern DLL_GLOBAL	short	g_sModelIndexAE2;
 
 
 extern void ExplosionCreate( const Vector &center, const Vector &angles, edict_t *pOwner, int magnitude, BOOL doDamage );

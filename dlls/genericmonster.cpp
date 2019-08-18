@@ -12,6 +12,7 @@
 *   use or distribution of this code by or to any unlicensed person is illegal.
 *
 ****/
+
 //=========================================================
 // Generic Monster - purely for scripted sequence work.
 //=========================================================
@@ -35,7 +36,6 @@
 //=========================================================
 // Monster's Anim Events Go Here
 //=========================================================
-//G-Cont. This code - support for htorch model from Op4 ;)
 #define HTORCH_AE_SHOWGUN ( 17)
 #define HTORCH_AE_SHOWTORCH ( 18)
 #define HTORCH_AE_HIDETORCH ( 19)
@@ -100,7 +100,7 @@ void CGenericMonster::KeyValue( KeyValueData *pkvd )
 //=========================================================
 int	CGenericMonster :: Classify ( void )
 {
-	return CLASS_PLAYER_ALLY;
+	return m_iClass?m_iClass:CLASS_PLAYER_ALLY;
 }
 
 //=========================================================
@@ -226,10 +226,7 @@ void CGenericMonster :: Spawn()
 	MonsterInit();
 
 	if ( pev->spawnflags & SF_HEAD_CONTROLLER )
-	{
 		m_afCapability = bits_CAP_TURN_HEAD;
-
-	}
 
 	if ( pev->spawnflags & SF_GENERICMONSTER_NOTSOLID )
 	{
@@ -237,9 +234,7 @@ void CGenericMonster :: Spawn()
 		pev->takedamage = DAMAGE_NO;
 	}
 	else if ( pev->spawnflags & SF_GENERICMONSTER_INVULNERABLE )
-	{
 		pev->takedamage = DAMAGE_NO;
-	}
 }
 
 //=========================================================
@@ -251,7 +246,7 @@ void CGenericMonster :: Precache()
 	TalkInit();
 	PRECACHE_MODEL( (char *)STRING(pev->model) );
 	if (m_iszGibModel)
-		PRECACHE_MODEL( (char*)STRING(m_iszGibModel) ); //LRC
+		PRECACHE_MODEL( (char*)STRING(m_iszGibModel) );
 }	
 
 //=========================================================
@@ -304,7 +299,7 @@ void CGenericMonster::MakeGas( void )
 			m_pBeam->EntsInit( entindex(), entindex() );
 			m_pBeam->SetColor( 24, 121, 239 );
 			m_pBeam->SetBrightness( 190 );
-		         	m_pBeam->SetScrollRate( 20 );
+		    m_pBeam->SetScrollRate( 20 );
 			m_pBeam->SetStartAttachment( 4 );
 			m_pBeam->SetEndAttachment( 3 );
 			m_pBeam->DamageDecal( 28 );

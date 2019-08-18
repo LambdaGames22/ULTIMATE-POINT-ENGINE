@@ -21,75 +21,15 @@
 #include "weapons.h"
 #include "nodes.h"
 #include "effects.h"
+#include "apache.h" // Step4enko
+
 
 extern DLL_GLOBAL int		g_iSkillLevel;
 
-#define SF_WAITFORTRIGGER	(0x04 | 0x40) // UNDONE: Fix!
-#define SF_NOWRECKAGE		0x08
+#define SF_WAITFORTRIGGER		(0x04 | 0x40) // UNDONE: Fix!
+#define SF_NOWRECKAGE			0x08
+#define SF_APACHE_NOROCKETS		256
 
-class CApache : public CBaseMonster
-{
-	int		Save( CSave &save );
-	int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	void Spawn( void );
-	void Precache( void );
-	int  Classify( void ) { return CLASS_HUMAN_MILITARY; };
-	int  BloodColor( void ) { return DONT_BLEED; }
-	void Killed( entvars_t *pevAttacker, int iGib );
-	void GibMonster( void );
-
-	void SetObjectCollisionBox( void )
-	{
-		pev->absmin = pev->origin + Vector( -300, -300, -172);
-		pev->absmax = pev->origin + Vector(300, 300, 8);
-	}
-
-	void EXPORT HuntThink( void );
-	void EXPORT FlyTouch( CBaseEntity *pOther );
-	void EXPORT CrashTouch( CBaseEntity *pOther );
-	void EXPORT DyingThink( void );
-	void EXPORT StartupUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
-	void EXPORT NullThink( void );
-
-	void ShowDamage( void );
-	void Flight( void );
-	void FireRocket( void );
-	BOOL FireGun( void );
-	
-	int  TakeDamage( entvars_t* pevInflictor, entvars_t* pevAttacker, float flDamage, int bitsDamageType );
-	void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType);
-
-	int m_iRockets;
-	float m_flForce;
-	float m_flNextRocket;
-
-	Vector m_vecTarget;
-	Vector m_posTarget;
-
-	Vector m_vecDesired;
-	Vector m_posDesired;
-
-	Vector m_vecGoal;
-
-	Vector m_angGun;
-	float m_flLastSeen;
-	float m_flPrevSeen;
-
-	int m_iSoundState; // don't save this
-
-	int m_iSpriteTexture;
-	int m_iExplode;
-	int m_iBodyGibs;
-
-	float m_flGoalSpeed;
-
-	int g_sModelIndexFireball_APACHE;
-
-	int m_iDoSmokePuff;
-	CBeam *m_pBeam;
-};
 LINK_ENTITY_TO_CLASS( monster_apache, CApache );
 
 TYPEDESCRIPTION	CApache::m_SaveData[] = 
@@ -119,17 +59,24 @@ IMPLEMENT_SAVERESTORE( CApache, CBaseMonster );
 void CApache :: Spawn( void )
 {
 	Precache( );
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+	    SET_MODEL(ENT(pev), "models/apache.mdl");
+
+	if (pev->health == 0)
+	    pev->health			= gSkillData.apacheHealth;
+
 	// motor
 	pev->movetype = MOVETYPE_FLY;
 	pev->solid = SOLID_BBOX;
 
-	SET_MODEL(ENT(pev), "models/apache.mdl");
 	UTIL_SetSize( pev, Vector( -32, -32, -64 ), Vector( 32, 32, 0 ) );
 	UTIL_SetOrigin( pev, pev->origin );
 
-	pev->flags |= FL_MONSTER;
+	pev->flags |= FL_MONSTER | FL_FLY;
 	pev->takedamage		= DAMAGE_AIM;
-	pev->health			= gSkillData.apacheHealth;
 
 	m_flFieldOfView = -0.707; // 270 degrees
 
@@ -156,7 +103,10 @@ void CApache :: Spawn( void )
 
 void CApache::Precache( void )
 {
-	PRECACHE_MODEL("models/apache.mdl");
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+	    PRECACHE_MODEL("models/apache.mdl");
 
 	PRECACHE_SOUND("apache/ap_rotor1.wav");
 	PRECACHE_SOUND("apache/ap_rotor2.wav");
@@ -198,10 +148,11 @@ void CApache::StartupUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 
 void CApache :: Killed( entvars_t *pevAttacker, int iGib )
 {
-	pev->movetype = MOVETYPE_TOSS;
+	pev->movetype = MOVETYPE_BOUNCE; // TOSS I GUESS?
 	pev->gravity = 0.3;
 
 	STOP_SOUND( ENT(pev), CHAN_STATIC, "apache/ap_rotor2.wav" );
+	STOP_SOUND( ENT(pev), CHAN_STATIC, "apache/ap_whine1.wav" );
 
 	UTIL_SetSize( pev, Vector( -32, -32, -64), Vector( 32, 32, 0) );
 	SetThink( &CApache::DyingThink );
@@ -346,7 +297,7 @@ void CApache :: DyingThink( void )
 			WRITE_BYTE( 0 ); // startframe
 			WRITE_BYTE( 0 ); // framerate
 			WRITE_BYTE( 4 ); // life
-			WRITE_BYTE( 32 );  // width
+			WRITE_BYTE( 16 );  // width
 			WRITE_BYTE( 0 );   // noise
 			WRITE_BYTE( 255 );   // r, g, b
 			WRITE_BYTE( 255 );   // r, g, b
@@ -437,13 +388,10 @@ void CApache::CrashTouch( CBaseEntity *pOther )
 	}
 }
 
-
-
 void CApache :: GibMonster( void )
 {
 	// EMIT_SOUND_DYN(ENT(pev), CHAN_VOICE, "common/bodysplat.wav", 0.75, ATTN_NORM, 0, 200);		
 }
-
 
 void CApache :: HuntThink( void )
 {
@@ -553,7 +501,7 @@ void CApache :: HuntThink( void )
 	Vector vecEst = (gpGlobals->v_forward * 800 + pev->velocity).Normalize( );
 	// ALERT( at_console, "%d %d %d %4.2f\n", pev->angles.x < 0, DotProduct( pev->velocity, gpGlobals->v_forward ) > -100, m_flNextRocket < gpGlobals->time, DotProduct( m_vecTarget, vecEst ) );
 
-	if ((m_iRockets % 2) == 1)
+	if ((m_iRockets % 2) == 1 && !(pev->spawnflags & SF_APACHE_NOROCKETS))
 	{
 		FireRocket( );
 		m_flNextRocket = gpGlobals->time + 0.5;
@@ -575,7 +523,7 @@ void CApache :: HuntThink( void )
 					TraceResult tr;
 					
 					UTIL_TraceLine( pev->origin, pev->origin + vecEst * 4096, ignore_monsters, edict(), &tr );
-					if ((tr.vecEndPos - m_posTarget).Length() < 512)
+					if ((tr.vecEndPos - m_posTarget).Length() < 512 && !(pev->spawnflags & SF_APACHE_NOROCKETS))
 						FireRocket( );
 				}
 			}
@@ -585,7 +533,7 @@ void CApache :: HuntThink( void )
 				
 				UTIL_TraceLine( pev->origin, pev->origin + vecEst * 4096, dont_ignore_monsters, edict(), &tr );
 				// just fire when close
-				if ((tr.vecEndPos - m_posTarget).Length() < 512)
+				if ((tr.vecEndPos - m_posTarget).Length() < 512 && !(pev->spawnflags & SF_APACHE_NOROCKETS))
 					FireRocket( );
 			}
 		}
@@ -711,7 +659,7 @@ void CApache :: Flight( void )
 	if (m_iSoundState == 0)
 	{
 		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_rotor2.wav", 1.0, 0.3, 0, 110 );
-		// EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_whine1.wav", 0.5, 0.2, 0, 110 );
+		EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_whine1.wav", 0.5, 0.2, 0, 110 );
 
 		m_iSoundState = SND_CHANGE_PITCH; // hack for going through level transitions
 	}
@@ -740,8 +688,8 @@ void CApache :: Flight( void )
 				flVol = 1.0;
 
 			EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_rotor2.wav", 1.0, 0.3, SND_CHANGE_PITCH | SND_CHANGE_VOL, pitch);
+			EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_whine1.wav", flVol, 0.2, SND_CHANGE_PITCH | SND_CHANGE_VOL, pitch);
 		}
-		// EMIT_SOUND_DYN(ENT(pev), CHAN_STATIC, "apache/ap_whine1.wav", flVol, 0.2, SND_CHANGE_PITCH | SND_CHANGE_VOL, pitch);
 	
 		// ALERT( at_console, "%.0f %.2f\n", pitch, flVol );
 	}
@@ -1050,6 +998,4 @@ void CApacheHVR :: AccelerateThink( void  )
 
 	pev->nextthink = gpGlobals->time + 0.1;
 }
-
-
 #endif

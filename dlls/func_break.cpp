@@ -12,13 +12,12 @@
 *   without written permission from Valve LLC.
 *
 ****/
-/*
 
-===== bmodels.cpp ========================================================
+// Step4enko: UNDONE
+// 1) EXPLOSIVES ONLY
+// 2) 
+// 3) 
 
-  spawn, think, and use functions for entities that use brush models
-
-*/
 #include "extdll.h"
 #include "util.h"
 #include "cbase.h"
@@ -26,11 +25,15 @@
 #include "func_break.h"
 #include "decals.h"
 #include "explode.h"
-#include "gamerules.h"
+
+// Func_breakable
+#define SF_BREAK_TRIGGER_ONLY	  1 // May only be broken by trigger.
+#define	SF_BREAK_TOUCH			  2 // Can be 'crashed through' by running player (plate glass)
+#define SF_BREAK_PRESSURE		  4 // Can be broken by a player standing on it.
+#define SF_BREAK_CROWBAR		  256 // Instant break if hit with crowbar.
+#define SF_BREAK_EXPLOSIVESONLY	  512 // Step4enko: Can be destroyed only by explosions.
 
 extern DLL_GLOBAL Vector		g_vecAttackDir;
-int gComputerShards;
-int gCinderShards;
 
 // =================== FUNC_Breakable ==============================================
 
@@ -39,7 +42,7 @@ int gCinderShards;
 // be spawned, and still remain fairly flexible
 const char *CBreakable::pSpawnObjects[] =
 {
-	"",				// 0
+	NULL,				// 0
 	"item_battery",		// 1
 	"item_healthkit",	// 2
 	"weapon_9mmhandgun",// 3
@@ -60,8 +63,11 @@ const char *CBreakable::pSpawnObjects[] =
 	"weapon_tripmine",	// 18
 	"weapon_satchel",	// 19
 	"weapon_snark",		// 20
-	//"weapon_hornetgun",	// 211
-	//"weapon_pipewrench", //jcode
+	"weapon_hornetgun",	// 21
+    "weapon_crowbar",	// 22
+    "item_suit",	// 23
+    "item_longjump",	// 24
+    "item_antidote",	// 25
 };
 
 void CBreakable::KeyValue( KeyValueData* pkvd )
@@ -106,7 +112,7 @@ void CBreakable::KeyValue( KeyValueData* pkvd )
 		pkvd->fHandled = TRUE;
 	}
 	else if (FStrEq(pkvd->szKeyName, "spawnobject") )
-	{		
+	{
 		int object = atoi( pkvd->szValue );
 		if ( object > 0 && object < ARRAYSIZE(pSpawnObjects) )
 			m_iszSpawnObject = MAKE_STRING( pSpawnObjects[object] );
@@ -177,68 +183,13 @@ void CBreakable::Spawn( void )
 		pev->flags |= FL_WORLDBRUSH;
 }
 
-// breakable rand code after this jonny
-
-class CBreakableRandom : public CBreakable
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-};
-LINK_ENTITY_TO_CLASS( func_breakable_random, CBreakableRandom );
-
-void CBreakableRandom :: Spawn( void )
-{
-	switch (RANDOM_LONG(0,2))
-	{
-	case 0: CBreakable::Spawn(); break;
-	case 1:  break;
-	case 2:  break;
-	}
-}
-
-void CBreakableRandom :: Precache( void )
-{
-	CBreakable::Precache();
-}
-//breakable random bsp stuff? am i that good?
-
-// antirush breakable code after this jonny
-
-class CAntiChangeLevel : public CBreakable
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-};
-LINK_ENTITY_TO_CLASS( anti_changelevel, CAntiChangeLevel );
-
-void CAntiChangeLevel :: Spawn( void )
-{
-	if ( g_pGameRules->IsMultiplayer() )
-	{
-		CBreakable::Spawn();
-		pev->health = 2000;
-		pev->solid = SOLID_BSP;
-		pev->movetype = MOVETYPE_PUSH;
-		pev->effects &= ~EF_NODRAW;
-		pev->renderamt = 0;
-		pev->rendermode = 1;
-	}
-	return;
-}
-
-void CAntiChangeLevel :: Precache( void )
-{
-	CBreakable::Precache();
-}
-// antirush breakable code after this jonny am i that good?
 
 const char *CBreakable::pSoundsWood[] = 
 {
 	"debris/wood1.wav",
 	"debris/wood2.wav",
 	"debris/wood3.wav",
+	"debris/wood4.wav",
 };
 
 const char *CBreakable::pSoundsFlesh[] = 
@@ -271,6 +222,7 @@ const char *CBreakable::pSoundsGlass[] =
 	"debris/glass1.wav",
 	"debris/glass2.wav",
 	"debris/glass3.wav",
+	"debris/glass4.wav",
 };
 
 const char **CBreakable::MaterialSoundList( Materials precacheMaterial, int &soundCount )
@@ -287,8 +239,8 @@ const char **CBreakable::MaterialSoundList( Materials precacheMaterial, int &sou
 		pSoundList = pSoundsFlesh;
 		soundCount = ARRAYSIZE(pSoundsFlesh);
 		break;
-	case matComputer: //todo add computer breaking sounds.
-	case matUnbreakableGlass: //todo deep fiberglass sound
+	case matComputer:
+	case matUnbreakableGlass:
 	case matGlass:
 		pSoundList = pSoundsGlass;
 		soundCount = ARRAYSIZE(pSoundsGlass);
@@ -306,7 +258,7 @@ const char **CBreakable::MaterialSoundList( Materials precacheMaterial, int &sou
 		break;
 	
 	
-	case matCeilingTile: //todo add ceiling tile breaking sounds like a small cotton thump
+	case matCeilingTile:
 	case matNone:
 	default:
 		soundCount = 0;
@@ -344,8 +296,7 @@ void CBreakable::MaterialSoundRandom( edict_t *pEdict, Materials soundMaterial, 
 void CBreakable::Precache( void )
 {
 	const char *pGibName;
-	gComputerShards = PRECACHE_MODEL( "models/computer_particle.mdl" );
-	gCinderShards = PRECACHE_MODEL( "models/cinder_particle.mdl" );
+
     switch (m_Material) 
 	{
 	case matWood:
@@ -369,7 +320,7 @@ void CBreakable::Precache( void )
 		PRECACHE_SOUND("debris/bustmetal2.wav");
 		break;
 
-	case matUnbreakableGlass: //maybe add a chipping effect of tiny fiberglass?
+	case matUnbreakableGlass:
 	case matGlass:
 		pGibName = "models/glassgibs.mdl";
 		
@@ -501,7 +452,8 @@ void CBreakable::BreakTouch( CBaseEntity *pOther )
 	}
 
 	if ( FBitSet ( pev->spawnflags, SF_BREAK_TOUCH ) )
-	{// can be broken when run into 
+	{
+		// can be broken when run into 
 		flDamage = pevToucher->velocity.Length() * 0.01;
 
 		if (flDamage >= pev->health)
@@ -515,8 +467,8 @@ void CBreakable::BreakTouch( CBaseEntity *pOther )
 	}
 
 	if ( FBitSet ( pev->spawnflags, SF_BREAK_PRESSURE ) && pevToucher->absmin.z >= pev->maxs.z - 2 )
-	{// can be broken when stood upon
-		
+	{
+		// can be broken when stood upon	
 		// play creaking sound here.
 		DamageSound();
 
@@ -524,14 +476,12 @@ void CBreakable::BreakTouch( CBaseEntity *pOther )
 		SetTouch( NULL );
 		
 		if ( m_flDelay == 0 )
-		{// !!!BUGBUG - why doesn't zero delay work?
+		{
+			// !!!BUGBUG - why doesn't zero delay work?
 			m_flDelay = 0.1;
 		}
-
 		pev->nextthink = pev->ltime + m_flDelay;
-
 	}
-
 }
 
 
@@ -565,33 +515,6 @@ void CBreakable::TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vec
 				UTIL_Sparks( ptr->vecEndPos );
 
 				float flVolume = RANDOM_FLOAT ( 0.7 , 1.0 );//random volume range
-				char cFlag = BREAK_METAL;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( gComputerShards );	//model id#. we use computershards because the actual computer components are immense and ugly
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
 				switch ( RANDOM_LONG(0,1) )
 				{
 					case 0: EMIT_SOUND(ENT(pev), CHAN_VOICE, "buttons/spark5.wav", flVolume, ATTN_NORM);	break;
@@ -602,266 +525,7 @@ void CBreakable::TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vec
 			
 			case matUnbreakableGlass:
 				UTIL_Ricochet( ptr->vecEndPos, RANDOM_FLOAT(0.5,1.5) );
-				//jcode begin
-			#ifndef CLIENT_DLL
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE(TE_DLIGHT);
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					WRITE_BYTE( RANDOM_LONG( 10, 15 ));		// radius * 0.1
-					WRITE_BYTE( 255 );		// r
-					WRITE_BYTE( 180 );		// g
-					WRITE_BYTE( 96 );		// b
-					WRITE_BYTE( RANDOM_LONG( 10, 20 ) / pev->framerate );		// time * 10
-					WRITE_BYTE( 1 );		// decay * 0.1
-					MESSAGE_END( );			
-			#endif
-				//endjcode
 			break;
-
-						//jcode begin
-			case matGlass:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_GLASS;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-
-			//jcode begin
-			case matWood:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_WOOD;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-							//jcode begin
-			case matRocks:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_CONCRETE;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-
-											//jcode begin
-			case matFlesh:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_FLESH;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-															//jcode begin
-			case matMetal:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_METAL;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-																			//jcode begin
-			case matCeilingTile:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_SMOKE;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( m_idShard );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(1,2) );	// let client decide
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-																							//jcode begin
-			case matCinderBlock:
-				{
-					//begin randoglass jcode
-				char cFlag = BREAK_CONCRETE;
-					MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, ptr->vecEndPos );
-					WRITE_BYTE( TE_BREAKMODEL);
-					// position
-					WRITE_COORD( ptr->vecEndPos.x );
-					WRITE_COORD( ptr->vecEndPos.y );
-					WRITE_COORD( ptr->vecEndPos.z );
-					// size
-					WRITE_COORD( pev->size.x);
-					WRITE_COORD( pev->size.y);
-					WRITE_COORD( pev->size.z);
-					// velocity
-					WRITE_COORD( 10 ); 
-					WRITE_COORD( 5 );
-					WRITE_COORD( 1 );		
-					// randomization
-					WRITE_BYTE( 10 ); 
-					// Model
-					WRITE_SHORT( gCinderShards );	//model id#
-					// # of shards
-					WRITE_BYTE( RANDOM_LONG(4,7) );	// 4 to 7 looks OK so far. 
-					// duration
-					WRITE_BYTE( 25 );// 2.5 seconds
-					// flags
-					WRITE_BYTE( cFlag );
-					MESSAGE_END();
-					//endrandoglass
-					break;
-				}
-			//jcode end
-
-				//matComputer is top
 		}
 	}
 
@@ -1115,7 +779,6 @@ int	CBreakable :: DamageDecal( int bitsDamageType )
 	if ( m_Material == matGlass  )
 		return DECAL_GLASSBREAK1 + RANDOM_LONG(0,2);
 
-
 	if ( m_Material == matUnbreakableGlass )
 		return DECAL_BPROOF1;
 
@@ -1146,24 +809,25 @@ public:
 	
 	static	TYPEDESCRIPTION m_SaveData[];
 
-	static char *m_soundNames[3];
-	int		m_lastSound;	// no need to save/restore, just keeps the same sound from playing twice in a row
 	float	m_maxSpeed;
 	float	m_soundTime;
+	int     m_iCustomSound1; // Step4enko
+	int     m_iCustomSound2; // Step4enko
+	int     m_iCustomSound3; // Step4enko
 };
 
 TYPEDESCRIPTION	CPushable::m_SaveData[] = 
 {
 	DEFINE_FIELD( CPushable, m_maxSpeed, FIELD_FLOAT ),
 	DEFINE_FIELD( CPushable, m_soundTime, FIELD_TIME ),
+	DEFINE_FIELD( CPushable, m_iCustomSound1, FIELD_STRING ), // Step4enko
+	DEFINE_FIELD( CPushable, m_iCustomSound2, FIELD_STRING ), // Step4enko
+	DEFINE_FIELD( CPushable, m_iCustomSound3, FIELD_STRING ) // Step4enko
 };
 
 IMPLEMENT_SAVERESTORE( CPushable, CBreakable );
 
 LINK_ENTITY_TO_CLASS( func_pushable, CPushable );
-
-char *CPushable :: m_soundNames[3] = { "debris/pushbox1.wav", "debris/pushbox2.wav", "debris/pushbox3.wav" };
-
 
 void CPushable :: Spawn( void )
 {
@@ -1191,41 +855,31 @@ void CPushable :: Spawn( void )
 	m_soundTime = 0;
 }
 
-// breakable rand code after this jonny
-
-class CPushableRandom : public CPushable
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-};
-LINK_ENTITY_TO_CLASS( func_pushable_random, CPushableRandom );
-
-void CPushableRandom :: Spawn( void )
-{
-	switch (RANDOM_LONG(0,2))
-	{
-	case 0: CPushable::Spawn(); break;
-	case 1:  break;
-	case 2:  break;
-	}
-}
-
-void CPushableRandom :: Precache( void )
-{
-	CPushable::Precache();
-}
-//Pushable random bsp stuff? am i that good?
 
 void CPushable :: Precache( void )
 {
-	for ( int i = 0; i < 3; i++ )
-		PRECACHE_SOUND( m_soundNames[i] );
+	char* szSoundFile1 = (char*) STRING( m_iCustomSound1 );
+	char* szSoundFile2 = (char*) STRING( m_iCustomSound2 );
+	char* szSoundFile3 = (char*) STRING( m_iCustomSound3 );
+
+	if (FStringNull(m_iCustomSound1))
+		PRECACHE_SOUND("debris/pushbox1.wav" );
+	else
+	    PRECACHE_SOUND( szSoundFile1 );
+
+	if (FStringNull(m_iCustomSound2))
+		PRECACHE_SOUND("debris/pushbox2.wav" );
+	else
+		PRECACHE_SOUND( szSoundFile2 );
+
+	if (FStringNull(m_iCustomSound3))
+		PRECACHE_SOUND("debris/pushbox3.wav" );
+	else
+		PRECACHE_SOUND( szSoundFile3 );
 
 	if ( pev->spawnflags & SF_PUSH_BREAKABLE )
 		CBreakable::Precache( );
 }
-
 
 
 void CPushable :: KeyValue( KeyValueData *pkvd )
@@ -1261,7 +915,22 @@ void CPushable :: KeyValue( KeyValueData *pkvd )
 		pev->skin = atof(pkvd->szValue);
 		pkvd->fHandled = TRUE;
 	}
-	//else
+	else if (FStrEq(pkvd->szKeyName, "m_iCustomSound1"))
+	{
+		m_iCustomSound1 = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "m_iCustomSound2"))
+	{
+		m_iCustomSound2 = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "m_iCustomSound3"))
+	{
+		m_iCustomSound3 = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else
 		CBreakable::KeyValue( pkvd );
 }
 
@@ -1292,6 +961,10 @@ void CPushable :: Touch( CBaseEntity *pOther )
 
 void CPushable :: Move( CBaseEntity *pOther, int push )
 {
+	char* szSoundFile1 = (char*) STRING( m_iCustomSound1 );
+	char* szSoundFile2 = (char*) STRING( m_iCustomSound2 );
+	char* szSoundFile3 = (char*) STRING( m_iCustomSound3 );
+
 	entvars_t*	pevToucher = pOther->pev;
 	int playerTouch = 0;
 
@@ -1305,11 +978,15 @@ void CPushable :: Move( CBaseEntity *pOther, int push )
 		return;
 	}
 
-
+	// Step4enko: Pushable acceleration bug fix.
 	if ( pOther->IsPlayer() )
 	{
-		if ( push && !(pevToucher->button & (IN_FORWARD|IN_USE)) )	// Don't push unless the player is pushing forward and NOT use (pull)
+		// Don't push unless the player is pushing forward and NOT use (pull)
+		if ( push && !(pevToucher->button & (IN_FORWARD|IN_MOVERIGHT|IN_MOVELEFT|IN_BACK)) )
 			return;
+		if ( !push && !(pevToucher->button & (IN_BACK)) ) 
+			return;
+
 		playerTouch = 1;
 	}
 
@@ -1325,8 +1002,7 @@ void CPushable :: Move( CBaseEntity *pOther, int push )
 				factor = 0.1;
 		}
 		else
-			factor = 0.20; //func_pushable range factor .20 currently fury_161 todo TAGS( pushing push factoring pushforce E Hold E)
-			/*factor = 1;*/
+			factor = 1;
 	}
 	else 
 		factor = 0.25;
@@ -1349,13 +1025,46 @@ void CPushable :: Move( CBaseEntity *pOther, int push )
 			m_soundTime = gpGlobals->time;
 			if ( length > 0 && FBitSet(pev->flags,FL_ONGROUND) )
 			{
-				m_lastSound = RANDOM_LONG(0,2);
-				EMIT_SOUND(ENT(pev), CHAN_WEAPON, m_soundNames[m_lastSound], 0.5, ATTN_NORM);
+				// Step4enko
+				switch (RANDOM_LONG(0,2))
+				{
+					case 0: 
+					{
+						if (FStringNull(m_iCustomSound1))
+						    EMIT_SOUND(ENT(pev), CHAN_WEAPON, "debris/pushbox1.wav", 0.5, ATTN_NORM); 
+						else
+							EMIT_SOUND(ENT(pev), CHAN_WEAPON, szSoundFile1, 0.5, ATTN_NORM); 
+						    break;
+					}
+					case 1: 
+					{
+						if (FStringNull(m_iCustomSound2))
+						    EMIT_SOUND(ENT(pev), CHAN_WEAPON, "debris/pushbox2.wav", 0.5, ATTN_NORM); 
+						else
+							EMIT_SOUND(ENT(pev), CHAN_WEAPON, szSoundFile2, 0.5, ATTN_NORM); 
+						    break;
+					}
+					case 2: 
+					{
+						if (FStringNull(m_iCustomSound3))
+						    EMIT_SOUND(ENT(pev), CHAN_WEAPON, "debris/pushbox3.wav", 0.5, ATTN_NORM); 
+						else
+							EMIT_SOUND(ENT(pev), CHAN_WEAPON, szSoundFile3, 0.5, ATTN_NORM); 
+						    break;
+					}
+				}
 	//			SetThink( StopSound );
 	//			pev->nextthink = pev->ltime + 0.1;
 			}
 			else
-				STOP_SOUND( ENT(pev), CHAN_WEAPON, m_soundNames[m_lastSound] );
+			{
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, szSoundFile1 );
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, szSoundFile2 );
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, szSoundFile3 );
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, "debris/pushbox1.wav" );
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, "debris/pushbox2.wav" );
+				STOP_SOUND( ENT(pev), CHAN_WEAPON, "debris/pushbox3.wav" );
+			}
 		}
 	}
 }
@@ -1365,7 +1074,7 @@ void CPushable::StopSound( void )
 {
 	Vector dist = pev->oldorigin - pev->origin;
 	if ( dist.Length() <= 0 )
-		STOP_SOUND( ENT(pev), CHAN_WEAPON, m_soundNames[m_lastSound] );
+		STOP_SOUND( ENT(pev), CHAN_WEAPON, "" );
 }
 #endif
 

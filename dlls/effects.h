@@ -24,10 +24,7 @@
 #define SF_BEAM_DECALS			0x0040
 #define SF_BEAM_SHADEIN			0x0080
 #define SF_BEAM_SHADEOUT		0x0100
-#define SF_BEAM_SOLID			0x0200
 #define SF_BEAM_TEMPORARY		0x8000
-#define SF_BEAM_TRIPPED			0x80000
-#define SF_LASER_INTERPOLATE	0x0400
 
 #define SF_SPRITE_STARTON		0x0001
 #define SF_SPRITE_ONCE			0x0002
@@ -154,8 +151,6 @@ public:
 	inline int  GetBrightness( void ) { return pev->renderamt; }
 	inline int  GetFrame( void ) { return pev->frame; }
 	inline int  GetScrollRate( void ) { return pev->animtime; }
-
-	CBaseEntity*	GetTripEntity( TraceResult *ptr );	//LRC
 
 	// Call after you change start/end positions
 	void		RelinkBeam( void );

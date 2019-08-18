@@ -22,11 +22,11 @@
 #include "decals.h"
 #include "func_break.h"
 #include "shake.h"
+#include "player.h"
 
-#define	SF_GIBSHOOTER_REPEATABLE	1 // Allows a gibshooter to be refired.
+#define	SF_GIBSHOOTER_REPEATABLE	1 // allows a gibshooter to be refired
 
-#define SF_FUNNEL_REVERSE			1 // Funnel effect repels particles instead of attracting them.
-#define SF_FUNNEL_REPEATABLE		2 // Allows a funnel to be refired.
+#define SF_FUNNEL_REVERSE			1 // funnel effect repels particles instead of attracting them.
 
 
 // Lightning target, just alias landmark
@@ -52,8 +52,6 @@ public:
 	int		m_frequency;
 	int		m_bubbleModel;
 	int		m_state;
-
-	virtual STATE GetState( void ) { return m_state?STATE_ON:STATE_OFF; };
 };
 
 LINK_ENTITY_TO_CLASS( env_bubbles, CBubbling );
@@ -91,7 +89,7 @@ void CBubbling::Spawn( void )
 	if ( !(pev->spawnflags & SF_BUBBLES_STARTOFF) )
 	{
 		SetThink( &CBubbling::FizzThink );
-		SetNextThink( 2.0 );
+		pev->nextthink = gpGlobals->time + 2.0;
 		m_state = 1;
 	}
 	else 
@@ -112,12 +110,12 @@ void CBubbling::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE use
 	if ( m_state )
 	{
 		SetThink( & CBubbling::FizzThink );
-		SetNextThink( 0.1 );
+		pev->nextthink = gpGlobals->time + 0.1;
 	}
 	else
 	{
 		SetThink( NULL );
-		DontThink();
+		pev->nextthink = 0;
 	}
 }
 
@@ -154,9 +152,9 @@ void CBubbling::FizzThink( void )
 	MESSAGE_END();
 
 	if ( m_frequency > 19 )
-		SetNextThink( 0.5 );
+		pev->nextthink = gpGlobals->time + 0.5;
 	else
-		SetNextThink( 2.5 - (0.1 * m_frequency) );
+		pev->nextthink = gpGlobals->time + 2.5 - (0.1 * m_frequency);
 }
 
 // --------------------------------------------------
@@ -370,6 +368,7 @@ void CBeam::DoSparks( const Vector &start, const Vector &end )
 	}
 }
 
+
 class CLightning : public CBeam
 {
 public:
@@ -379,7 +378,7 @@ public:
 	void	Activate( void );
 
 	void	EXPORT StrikeThink( void );
-	void	EXPORT TripThink( void );
+	void	EXPORT DamageThink( void );
 	void	RandomArea( void );
 	void	RandomPoint( Vector &vecSrc );
 	void	Zap( const Vector &vecSrc, const Vector &vecDest );
@@ -397,10 +396,7 @@ public:
 	virtual int		Restore( CRestore &restore );
 	static	TYPEDESCRIPTION m_SaveData[];
 
-	void	BeamUpdatePoints( void ); //LRC
 	void	BeamUpdateVars( void );
-
-	virtual STATE GetState( void ) { return m_active?STATE_OFF:STATE_ON; };
 
 	int		m_active;
 	int		m_iszStartEntity;
@@ -432,7 +428,7 @@ LINK_ENTITY_TO_CLASS( trip_beam, CTripBeam );
 void CTripBeam::Spawn( void )
 {
 	CLightning::Spawn();
-	SetTouch(&CTripBeam:: TriggerTouch );
+	SetTouch( &CTripBeam::TriggerTouch );
 	pev->solid = SOLID_TRIGGER;
 	RelinkBeam();
 }
@@ -464,7 +460,7 @@ void CLightning::Spawn( void )
 {
 	if ( FStringNull( m_iszSpriteName ) )
 	{
-		SetThink(&CLightning:: SUB_Remove );
+		SetThink( &CLightning::SUB_Remove );
 		return;
 	}
 	pev->solid = SOLID_NOT;							// Remove model & collisions
@@ -472,22 +468,13 @@ void CLightning::Spawn( void )
 
 	pev->dmgtime = gpGlobals->time;
 
-	//LRC- a convenience for mappers. Will this mess anything up?
-	if (pev->rendercolor == g_vecZero)
-		pev->rendercolor = Vector(255, 255, 255);
-
-	if (pev->frags == 0)
-	{
-		pev->frags = DMG_ENERGYBEAM;
-	}
-
 	if ( ServerSide() )
 	{
 		SetThink( NULL );
-		if ( pev->dmg != 0 || !FStringNull(pev->target) )
+		if ( pev->dmg > 0 )
 		{
-			SetThink(&CLightning:: TripThink );
-			SetNextThink( 0.1 );
+			SetThink( &CLightning::DamageThink );
+			pev->nextthink = gpGlobals->time + 0.1;
 		}
 		if ( pev->targetname )
 		{
@@ -495,12 +482,12 @@ void CLightning::Spawn( void )
 			{
 				pev->effects = EF_NODRAW;
 				m_active = 0;
-				DontThink();
+				pev->nextthink = 0;
 			}
 			else
 				m_active = 1;
 		
-			SetUse(&CLightning:: ToggleUse );
+			SetUse( &CLightning::ToggleUse );
 		}
 	}
 	else
@@ -508,12 +495,12 @@ void CLightning::Spawn( void )
 		m_active = 0;
 		if ( !FStringNull(pev->targetname) )
 		{
-			SetUse(&CLightning:: StrikeUse );
+			SetUse( &CLightning::StrikeUse );
 		}
 		if ( FStringNull(pev->targetname) || FBitSet(pev->spawnflags, SF_BEAM_STARTON) )
 		{
-			SetThink(&CLightning:: StrikeThink );
-			SetNextThink( 1.0 );
+			SetThink( &CLightning::StrikeThink );
+			pev->nextthink = gpGlobals->time + 1.0;
 		}
 	}
 }
@@ -529,8 +516,6 @@ void CLightning::Activate( void )
 {
 	if ( ServerSide() )
 		BeamUpdateVars();
-
-	CBeam::Activate();
 }
 
 
@@ -603,20 +588,17 @@ void CLightning::ToggleUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 	if ( m_active )
 	{
 		m_active = 0;
-		SUB_UseTargets( this, USE_OFF, 0 ); //LRC
 		pev->effects |= EF_NODRAW;
-		DontThink();
+		pev->nextthink = 0;
 	}
 	else
 	{
 		m_active = 1;
-		SUB_UseTargets( this, USE_ON, 0 ); //LRC
-		BeamUpdatePoints();
 		pev->effects &= ~EF_NODRAW;
 		DoSparks( GetStartPos(), GetEndPos() );
 		if ( pev->dmg > 0 )
 		{
-			SetNextThink( 0 );
+			pev->nextthink = gpGlobals->time;
 			pev->dmgtime = gpGlobals->time;
 		}
 	}
@@ -635,8 +617,8 @@ void CLightning::StrikeUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 	}
 	else
 	{
-		SetThink(&CLightning:: StrikeThink );
-		SetNextThink( 0.1 );
+		SetThink( &CLightning::StrikeThink );
+		pev->nextthink = gpGlobals->time + 0.1;
 	}
 
 	if ( !FBitSet( pev->spawnflags, SF_BEAM_TOGGLE ) )
@@ -646,9 +628,9 @@ void CLightning::StrikeUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_T
 
 int IsPointEntity( CBaseEntity *pEnt )
 {
-	if (pEnt->pev->modelindex && !(pEnt->pev->flags & FL_CUSTOMENTITY)) //LRC- follow (almost) any entity that has a model
-		return 0;
-	else
+	if ( !pEnt->pev->modelindex )
+		return 1;
+	if ( FClassnameIs( pEnt->pev, "info_target" ) || FClassnameIs( pEnt->pev, "info_landmark" ) || FClassnameIs( pEnt->pev, "path_corner" ) )
 		return 1;
 
 	return 0;
@@ -657,12 +639,12 @@ int IsPointEntity( CBaseEntity *pEnt )
 
 void CLightning::StrikeThink( void )
 {
-	if ( m_life != 0 && m_restrike != -1) //LRC non-restriking beams! what an idea!
+	if ( m_life != 0 )
 	{
 		if ( pev->spawnflags & SF_BEAM_RANDOM )
-			SetNextThink( m_life + RANDOM_FLOAT( 0, m_restrike ) );
+			pev->nextthink = gpGlobals->time + m_life + RANDOM_FLOAT( 0, m_restrike );
 		else
-			SetNextThink( m_life + m_restrike );
+			pev->nextthink = gpGlobals->time + m_life + m_restrike;
 	}
 	m_active = 1;
 
@@ -688,14 +670,18 @@ void CLightning::StrikeThink( void )
 
 	if ( pStart != NULL && pEnd != NULL )
 	{
+		if ( IsPointEntity( pStart ) || IsPointEntity( pEnd ) )
+		{
+			if ( pev->spawnflags & SF_BEAM_RING)
+			{
+				// don't work
+				return;
+			}
+		}
+
 		MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY );
 			if ( IsPointEntity( pStart ) || IsPointEntity( pEnd ) )
 			{
-				if ( pev->spawnflags & SF_BEAM_RING)
-				{
-					// don't work
-					return;
-				}
 				if ( !IsPointEntity( pEnd ) )	// One point entity must be in pEnd
 				{
 					CBaseEntity *pTemp;
@@ -747,46 +733,15 @@ void CLightning::StrikeThink( void )
 			WRITE_BYTE( m_speed );		// speed
 		MESSAGE_END();
 		DoSparks( pStart->pev->origin, pEnd->pev->origin );
-		if ( pev->dmg || !FStringNull(pev->target))
+		if ( pev->dmg > 0 )
 		{
 			TraceResult tr;
 			UTIL_TraceLine( pStart->pev->origin, pEnd->pev->origin, dont_ignore_monsters, NULL, &tr );
-			if (pev->dmg) BeamDamageInstant( &tr, pev->dmg );
-
-			//LRC - tripbeams
-			CBaseEntity* pTrip;
-			if (!FStringNull(pev->target) && (pTrip = GetTripEntity( &tr )) != NULL)
-				FireTargets(STRING(pev->target), pTrip, this, USE_TOGGLE, 0);
+			BeamDamageInstant( &tr, pev->dmg );
 		}
 	}
 }
 
-
-CBaseEntity* CBeam::GetTripEntity( TraceResult *ptr )
-{
-	CBaseEntity* pTrip;
-
-	if (ptr->flFraction == 1.0 || ptr->pHit == NULL)
-		return NULL;
-
-	pTrip = CBaseEntity::Instance(ptr->pHit);
-	if (pTrip == NULL)
-		return NULL;
-
-	if ( FStringNull(pev->netname))
-	{
-		if (pTrip->pev->flags & (FL_CLIENT | FL_MONSTER))
-			return pTrip;
-		else
-			return NULL;
-	}
-	else if ( FClassnameIs(pTrip->pev, STRING(pev->netname) ))
-		return pTrip;
-	else if ( FStrEq( STRING(pTrip->pev->targetname), STRING(pev->netname) ))
-		return pTrip;
-	else
-		return NULL;
-}
 
 void CBeam::BeamDamage( TraceResult *ptr )
 {
@@ -796,59 +751,26 @@ void CBeam::BeamDamage( TraceResult *ptr )
 		CBaseEntity *pHit = CBaseEntity::Instance(ptr->pHit);
 		if ( pHit )
 		{
-			if (pev->dmg > 0)
-			{         if(pev->frags == 0)pev->frags = DMG_ENERGYBEAM;
-				ClearMultiDamage();
-				pHit->TraceAttack( pev, pev->dmg * (gpGlobals->time - pev->dmgtime), (ptr->vecEndPos - pev->origin).Normalize(), ptr, pev->frags );
-				ApplyMultiDamage( pev, pev );
-				if ( pev->spawnflags & SF_BEAM_DECALS )
-				{
-					if ( pHit->IsBSPModel() )
-						UTIL_DecalTrace( ptr, DECAL_BIGSHOT1 + RANDOM_LONG(0,4) );
-				}
-			}
-			else
+			ClearMultiDamage();
+			pHit->TraceAttack( pev, pev->dmg * (gpGlobals->time - pev->dmgtime), (ptr->vecEndPos - pev->origin).Normalize(), ptr, DMG_ENERGYBEAM );
+			ApplyMultiDamage( pev, pev );
+			if ( pev->spawnflags & SF_BEAM_DECALS )
 			{
-				//LRC - beams that heal people
-				pHit->TakeHealth( -(pev->dmg * (gpGlobals->time - pev->dmgtime)), DMG_GENERIC );
+				if ( pHit->IsBSPModel() )
+					UTIL_DecalTrace( ptr, DECAL_BIGSHOT1 + RANDOM_LONG(0,4) );
 			}
 		}
 	}
 	pev->dmgtime = gpGlobals->time;
 }
 
-//LRC - used to be DamageThink, but now it's more general.
-void CLightning::TripThink( void )
+
+void CLightning::DamageThink( void )
 {
-	SetNextThink( 0.1 );
+	pev->nextthink = gpGlobals->time + 0.1;
 	TraceResult tr;
-
-	//ALERT(at_console,"TripThink\n");
-
 	UTIL_TraceLine( GetStartPos(), GetEndPos(), dont_ignore_monsters, NULL, &tr );
 	BeamDamage( &tr );
-
-	//LRC - tripbeams
-	if (!FStringNull(pev->target))
-	{
-		// nicked from monster_tripmine:
-		//HACKHACK Set simple box using this really nice global!
-		gpGlobals->trace_flags = FTRACE_SIMPLEBOX;
-		UTIL_TraceLine( GetStartPos(), GetEndPos(), dont_ignore_monsters, NULL, &tr );
-		CBaseEntity *pTrip = GetTripEntity( &tr );
-		if (pTrip)
-		{
-			if (!FBitSet(pev->spawnflags, SF_BEAM_TRIPPED))
-			{
-				FireTargets(STRING(pev->target), pTrip, this, USE_TOGGLE, 0);
-				pev->spawnflags |= SF_BEAM_TRIPPED;
-			}
-		}
-		else
-		{
-			pev->spawnflags &= ~SF_BEAM_TRIPPED;
-		}
-	}
 }
 
 
@@ -959,24 +881,30 @@ void CLightning::RandomPoint( Vector &vecSrc )
 }
 
 
-// LRC: Called whenever the beam gets turned on, in case an alias changed or one of the points has moved.
-void CLightning::BeamUpdatePoints( void )
+
+void CLightning::BeamUpdateVars( void )
 {
 	int beamType;
 	int pointStart, pointEnd;
 
-	CBaseEntity *pStart = UTIL_FindEntityByTargetname ( NULL, STRING(m_iszStartEntity) );
-	CBaseEntity *pEnd   = UTIL_FindEntityByTargetname ( NULL, STRING(m_iszEndEntity) );
-	if (!pStart || !pEnd) return;
-	pointStart = IsPointEntity( pStart );
-	pointEnd = IsPointEntity( pEnd );
+	edict_t *pStart = FIND_ENTITY_BY_TARGETNAME ( NULL, STRING(m_iszStartEntity) );
+	edict_t *pEnd = FIND_ENTITY_BY_TARGETNAME ( NULL, STRING(m_iszEndEntity) );
+	pointStart = IsPointEntity( CBaseEntity::Instance(pStart) );
+	pointEnd = IsPointEntity( CBaseEntity::Instance(pEnd) );
+
+	pev->skin = 0;
+	pev->sequence = 0;
+	pev->rendermode = 0;
+	pev->flags |= FL_CUSTOMENTITY;
+	pev->model = m_iszSpriteName;
+	SetTexture( m_spriteTexture );
 
 	beamType = BEAM_ENTS;
 	if ( pointStart || pointEnd )
 	{
 		if ( !pointStart )	// One point entity must be in pStart
 		{
-			CBaseEntity *pTemp;
+			edict_t *pTemp;
 			// Swap start & end
 			pTemp = pStart;
 			pStart = pEnd;
@@ -994,31 +922,19 @@ void CLightning::BeamUpdatePoints( void )
 	SetType( beamType );
 	if ( beamType == BEAM_POINTS || beamType == BEAM_ENTPOINT || beamType == BEAM_HOSE )
 	{
-		SetStartPos( pStart->pev->origin );
+		SetStartPos( pStart->v.origin );
 		if ( beamType == BEAM_POINTS || beamType == BEAM_HOSE )
-			SetEndPos( pEnd->pev->origin );
+			SetEndPos( pEnd->v.origin );
 		else
-			SetEndEntity( ENTINDEX(ENT(pEnd->pev)) );
+			SetEndEntity( ENTINDEX(pEnd) );
 	}
 	else
 	{
-		SetStartEntity( ENTINDEX(ENT(pStart->pev)) );
-		SetEndEntity( ENTINDEX(ENT(pEnd->pev)) );
+		SetStartEntity( ENTINDEX(pStart) );
+		SetEndEntity( ENTINDEX(pEnd) );
 	}
 
 	RelinkBeam();
-}
-
-void CLightning::BeamUpdateVars( void )
-{
-	pev->skin = 0;
-	pev->sequence = 0;
-	pev->rendermode = 0;
-	pev->flags |= FL_CUSTOMENTITY;
-	pev->model = m_iszSpriteName;
-	SetTexture( m_spriteTexture );
-
-	BeamUpdatePoints(); //LRC
 
 	SetWidth( m_boltWidth );
 	SetNoise( m_noiseAmplitude );
@@ -1028,9 +944,8 @@ void CLightning::BeamUpdateVars( void )
 		SetFlags( BEAM_FSHADEIN );
 	else if ( pev->spawnflags & SF_BEAM_SHADEOUT )
 		SetFlags( BEAM_FSHADEOUT );
-	else if ( pev->spawnflags & SF_BEAM_SOLID )
-		SetFlags( BEAM_FSOLID );
 }
+
 
 LINK_ENTITY_TO_CLASS( env_laser, CLaser );
 
@@ -1195,6 +1110,8 @@ void CLaser::StrikeThink( void )
 	pev->nextthink = gpGlobals->time + 0.1;
 }
 
+
+
 class CGlow : public CPointEntity
 {
 public:
@@ -1241,7 +1158,7 @@ void CGlow::Think( void )
 {
 	Animate( pev->framerate * (gpGlobals->time - m_lastTime) );
 
-	SetNextThink( 0.1 );
+	pev->nextthink		= gpGlobals->time + 0.1;
 	m_lastTime			= gpGlobals->time;
 }
 
@@ -1274,6 +1191,7 @@ void CSprite::Spawn( void )
 	SET_MODEL( ENT(pev), STRING(pev->model) );
 
 	m_maxFrame = (float) MODEL_FRAMES( pev->modelindex ) - 1;
+
 	if ( pev->targetname && !(pev->spawnflags & SF_SPRITE_STARTON) )
 		TurnOff();
 	else
@@ -1329,7 +1247,7 @@ void CSprite::AnimateThink( void )
 {
 	Animate( pev->framerate * (gpGlobals->time - m_lastTime) );
 
-	SetNextThink( 0.1 );
+	pev->nextthink		= gpGlobals->time + 0.1;
 	m_lastTime			= gpGlobals->time;
 }
 
@@ -1340,7 +1258,7 @@ void CSprite::AnimateUntilDead( void )
 	else
 	{
 		AnimateThink();
-		SetNextThink( 0 );
+		pev->nextthink = gpGlobals->time;
 	}
 }
 
@@ -1350,7 +1268,7 @@ void CSprite::Expand( float scaleSpeed, float fadeSpeed )
 	pev->health = fadeSpeed;
 	SetThink( &CSprite::ExpandThink );
 
-	SetNextThink( 0 );
+	pev->nextthink	= gpGlobals->time;
 	m_lastTime		= gpGlobals->time;
 }
 
@@ -1367,7 +1285,7 @@ void CSprite::ExpandThink( void )
 	}
 	else
 	{
-		SetNextThink( 0.1 );
+		pev->nextthink		= gpGlobals->time + 0.1;
 		m_lastTime			= gpGlobals->time;
 	}
 }
@@ -1394,25 +1312,17 @@ void CSprite::Animate( float frames )
 void CSprite::TurnOff( void )
 {
 	pev->effects = EF_NODRAW;
-	DontThink();
+	pev->nextthink = 0;
 }
 
 
 void CSprite::TurnOn( void )
 {
-	if (pev->message)
-	{
-		CBaseEntity *pTemp = UTIL_FindEntityByTargetname(NULL, STRING(pev->message));
-		if (pTemp)
-			SetAttachment(pTemp->edict(), pev->frags);
-		else
-			return;
-	}
 	pev->effects = 0;
 	if ( (pev->framerate && m_maxFrame > 1.0) || (pev->spawnflags & SF_SPRITE_ONCE) )
 	{
-		SetThink(&CSprite:: AnimateThink );
-		SetNextThink( 0 );
+		SetThink( &CSprite::AnimateThink );
+		pev->nextthink = gpGlobals->time;
 		m_lastTime = gpGlobals->time;
 	}
 	pev->frame = 0;
@@ -1426,12 +1336,10 @@ void CSprite::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useTy
 	{
 		if ( on )
 		{
-			SUB_UseTargets( this, USE_OFF, 0 ); //LRC
 			TurnOff();
 		}
 		else
 		{
-			SUB_UseTargets( this, USE_ON, 0 ); //LRC
 			TurnOn();
 		}
 	}
@@ -1937,6 +1845,7 @@ public:
 	inline	float	Frequency( void ) { return pev->dmg_save; }
 	inline	float	Duration( void ) { return pev->dmg_take; }
 	inline	float	Radius( void ) { return pev->dmg; }
+	inline	float	InAir( void ) { return pev->dmg; }
 
 	inline	void	SetAmplitude( float amplitude ) { pev->scale = amplitude; }
 	inline	void	SetFrequency( float frequency ) { pev->dmg_save = frequency; }
@@ -1955,8 +1864,7 @@ LINK_ENTITY_TO_CLASS( env_shake, CShake );
 // NOTE: UTIL_ScreenShake() will only shake players who are on the ground
 
 #define SF_SHAKE_EVERYONE	0x0001		// Don't check radius
-// UNDONE: These don't work yet
-#define SF_SHAKE_DISRUPT	0x0002		// Disrupt controls
+#define SF_SHAKE_DISRUPT	0x0002		// Disrupt controls UNDONE: This don't work yet
 #define SF_SHAKE_INAIR		0x0004		// Shake players in air
 
 void CShake::Spawn( void )
@@ -1965,7 +1873,7 @@ void CShake::Spawn( void )
 	pev->movetype		= MOVETYPE_NONE;
 	pev->effects		= 0;
 	pev->frame			= 0;
-	
+
 	if ( pev->spawnflags & SF_SHAKE_EVERYONE )
 		pev->dmg = 0;
 }
@@ -2000,7 +1908,11 @@ void CShake::KeyValue( KeyValueData *pkvd )
 
 void CShake::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
-	UTIL_ScreenShake( pev->origin, Amplitude(), Frequency(), Duration(), Radius() );
+	// Step4enko
+	if ( FBitSet ( pev->spawnflags, SF_SHAKE_INAIR ) )
+		UTIL_ScreenShakeInAir( pev->origin, Amplitude(), Frequency(), Duration(), Radius() );
+	else
+		UTIL_ScreenShake( pev->origin, Amplitude(), Frequency(), Duration(), Radius() );
 }
 
 
@@ -2011,8 +1923,8 @@ public:
 	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void	KeyValue( KeyValueData *pkvd );
 
-	virtual STATE GetState( void ) { return m_iState; }; // LRC
-	void	Think( void ); //LRC
+	virtual STATE GetState( void ) { return m_iState; };
+	void	Think( void );
 
 	inline	float	Duration( void ) { return pev->dmg_take; }
 	inline	float	HoldTime( void ) { return pev->dmg_save; }
@@ -2020,7 +1932,7 @@ public:
 	inline	void	SetDuration( float duration ) { pev->dmg_take = duration; }
 	inline	void	SetHoldTime( float hold ) { pev->dmg_save = hold; }
 
-	STATE   m_iState; // LRC. Don't saverestore this value, it's not worth it.
+	STATE   m_iState;
 private:
 };
 
@@ -2028,11 +1940,11 @@ LINK_ENTITY_TO_CLASS( env_fade, CFade );
 
 // pev->dmg_take is duration
 // pev->dmg_save is hold duration
-#define SF_FADE_IN				0x0001		// Fade in, not out
-#define SF_FADE_MODULATE		0x0002		// Modulate, don't blend
-#define SF_FADE_ONLYONE			0x0004
-#define SF_FADE_PERMANENT		0x0008		//LRC - hold permanently
-#define SF_FADE_CAMERA			0x0016	//fading only for camera
+#define SF_FADE_IN				0x0001		// Fade in, not out.
+#define SF_FADE_MODULATE		0x0002		// Modulate, don't blend.
+#define SF_FADE_ONLYONE			0x0004      // If activated by a player, that player's screen will fade, but other players will be unaffected.
+#define SF_FADE_PERMANENT		0x0008      // Hold permanently.
+#define SF_FADE_CAMERA			0x0010	    // Fading only for camera.
 
 void CFade::Spawn( void )
 {
@@ -2041,7 +1953,7 @@ void CFade::Spawn( void )
 	pev->effects		= 0;
 	pev->frame			= 0;
 
-	m_iState = STATE_OFF; //LRC
+	m_iState = STATE_OFF;
 }
 
 
@@ -2074,17 +1986,17 @@ void CFade::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType
 		}
 		if ( pActivator && pActivator->IsPlayer() )
 		{
-// 			if(((CBasePlayer *)pActivator)->viewFlags == 0) // LambdaGames22: Step4enko, please finish it.
-//			{
+ 			if(((CBasePlayer *)pActivator)->viewFlags == 0)
+			{
 // 				ALERT(at_console, "player is not curently see in camera\n");			
-//				return;
-//			}
+				return;
+			}
 
 		}
 	}
 	
-	m_iState = STATE_TURN_ON; //LRC
-	SetNextThink( Duration() ); //LRC
+	m_iState = STATE_TURN_ON;
+	SetNextThink( Duration() );
 
 	if ( !(pev->spawnflags & SF_FADE_IN) )
 		fadeFlags |= FFADE_OUT;
@@ -2092,8 +2004,8 @@ void CFade::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType
 	if ( pev->spawnflags & SF_FADE_MODULATE )
 		fadeFlags |= FFADE_MODULATE;
 
-	if ( pev->spawnflags & SF_FADE_PERMANENT )	//LRC
-		fadeFlags |= FFADE_STAYOUT;				//LRC
+	if ( pev->spawnflags & SF_FADE_PERMANENT )
+		fadeFlags |= FFADE_STAYOUT;
 
 	if ( pev->spawnflags & SF_FADE_ONLYONE )
 	{
@@ -2109,7 +2021,6 @@ void CFade::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType
 	SUB_UseTargets( this, USE_TOGGLE, 0 );
 }
 
-//LRC: a bolt-on state!
 void CFade::Think( void )
 {
 	if (m_iState == STATE_TURN_ON)
@@ -2251,17 +2162,11 @@ LINK_ENTITY_TO_CLASS( env_funnel, CEnvFunnel );
 
 void CEnvFunnel::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
-	Vector vecPos;
-	if (pev->message)
-		vecPos = CalcLocus_Position( this, pActivator, STRING(pev->message) );
-	else
-		vecPos = pev->origin;
-
 	MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY );
 		WRITE_BYTE( TE_LARGEFUNNEL );
-		WRITE_COORD( vecPos.x );
-		WRITE_COORD( vecPos.y );
-		WRITE_COORD( vecPos.z );
+		WRITE_COORD( pev->origin.x );
+		WRITE_COORD( pev->origin.y );
+		WRITE_COORD( pev->origin.z );
 		WRITE_SHORT( m_iSprite );
 
 		if ( pev->spawnflags & SF_FUNNEL_REVERSE )// funnel flows in reverse?
@@ -2276,271 +2181,15 @@ void CEnvFunnel::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE us
 
 	MESSAGE_END();
 
-	if (!(pev->spawnflags & SF_FUNNEL_REPEATABLE))
-	{
-		SetThink(&CEnvFunnel:: SUB_Remove );
-		SetNextThink( 0 );
-	}
+	SetThink( &CEnvFunnel::SUB_Remove );
+	pev->nextthink = gpGlobals->time;
 }
-
 
 void CEnvFunnel::Spawn( void )
 {
 	Precache();
 	pev->solid = SOLID_NOT;
 	pev->effects = EF_NODRAW;
-}
-
-//==================================================================
-// Env_shockwave
-//==================================================================
-#define SF_SHOCKWAVE_CENTERED 1
-#define SF_SHOCKWAVE_REPEATABLE 2
-
-class CEnvShockwave : public CPointEntity
-{
-public:
-	void	Precache( void );
-	void	Spawn( void ) { Precache(); }
-	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
-	void	KeyValue( KeyValueData *pkvd );
-	virtual int		Save( CSave &save );
-	virtual int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	void DoEffect( Vector vecPos );
-
-	int m_iTime;
-	int m_iRadius;
-	int	m_iHeight;
-	int m_iScrollRate;
-	int m_iNoise;
-	int m_iFrameRate;
-	int m_iStartFrame;
-	int m_iSpriteTexture;
-	char m_cType;
-	int m_iszPosition;
-};
-
-LINK_ENTITY_TO_CLASS( env_shockwave, CEnvShockwave );
-
-TYPEDESCRIPTION	CEnvShockwave::m_SaveData[] = 
-{
-	DEFINE_FIELD( CEnvShockwave, m_iHeight, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iTime, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iRadius, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iScrollRate, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iNoise, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iFrameRate, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iStartFrame, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_iSpriteTexture, FIELD_INTEGER ),
-	DEFINE_FIELD( CEnvShockwave, m_cType, FIELD_CHARACTER ),
-	DEFINE_FIELD( CEnvShockwave, m_iszPosition, FIELD_STRING ),
-};
-
-IMPLEMENT_SAVERESTORE( CEnvShockwave, CBaseEntity );
-
-void CEnvShockwave::Precache( void )
-{
-	m_iSpriteTexture = PRECACHE_MODEL( (char *)STRING(pev->netname) );
-}
-
-void CEnvShockwave::KeyValue( KeyValueData *pkvd )
-{
-	if (FStrEq(pkvd->szKeyName, "m_iTime"))
-	{
-		m_iTime = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iRadius"))
-	{
-		m_iRadius = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iHeight"))
-	{
-		m_iHeight = atoi(pkvd->szValue)/2; //LRC- the actual height is doubled when drawn
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iScrollRate"))
-	{
-		m_iScrollRate = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iNoise"))
-	{
-		m_iNoise = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iFrameRate"))
-	{
-		m_iFrameRate = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iStartFrame"))
-	{
-		m_iStartFrame = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_iszPosition"))
-	{
-		m_iszPosition = ALLOC_STRING(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else if (FStrEq(pkvd->szKeyName, "m_cType"))
-	{
-		m_cType = atoi(pkvd->szValue);
-		pkvd->fHandled = TRUE;
-	}
-	else
-		CBaseEntity::KeyValue( pkvd );
-}
-
-void CEnvShockwave::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
-{
-	Vector vecPos;
-	if (m_iszPosition)
-		vecPos = CalcLocus_Position( this, pActivator, STRING(m_iszPosition) );
-	else
-		vecPos = pev->origin;
-
-	if (!(pev->spawnflags & SF_SHOCKWAVE_CENTERED))
-		vecPos.z += m_iHeight;
-	
-	if ( pev->target )
-		FireTargets( STRING( pev->target ), pActivator, pCaller, useType, value );
-
-	// blast circle
-	MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, pev->origin );
-		if (m_cType)
-			WRITE_BYTE( m_cType );
-		else
-			WRITE_BYTE( TE_BEAMCYLINDER );
-		WRITE_COORD( vecPos.x );// coord coord coord (center position)
-		WRITE_COORD( vecPos.y );
-		WRITE_COORD( vecPos.z );
-		WRITE_COORD( vecPos.x );// coord coord coord (axis and radius)
-		WRITE_COORD( vecPos.y );
-		WRITE_COORD( vecPos.z + m_iRadius );
-		WRITE_SHORT( m_iSpriteTexture ); // short (sprite index)
-		WRITE_BYTE( m_iStartFrame ); // byte (starting frame)
-		WRITE_BYTE( m_iFrameRate ); // byte (frame rate in 0.1's)
-		WRITE_BYTE( m_iTime ); // byte (life in 0.1's)
-		WRITE_BYTE( m_iHeight );  // byte (line width in 0.1's)
-		WRITE_BYTE( m_iNoise );   // byte (noise amplitude in 0.01's)
-		WRITE_BYTE( pev->rendercolor.x );   // byte,byte,byte (color)
-		WRITE_BYTE( pev->rendercolor.y );
-		WRITE_BYTE( pev->rendercolor.z );
-		WRITE_BYTE( pev->renderamt );  // byte (brightness)
-		WRITE_BYTE( m_iScrollRate );	// byte (scroll speed in 0.1's)
-	MESSAGE_END();
-
-	if (!(pev->spawnflags & SF_SHOCKWAVE_REPEATABLE))
-	{
-		SetThink(&CEnvShockwave:: SUB_Remove );
-		SetNextThink( 0 );
-	}
-}
-
-//=========================================================
-// LRC - Decal effect
-//=========================================================
-class CEnvDecal : public CPointEntity
-{
-public:
-	void	Spawn( void );
-	void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
-};
-
-LINK_ENTITY_TO_CLASS( env_decal, CEnvDecal );
-
-void CEnvDecal::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
-{
-	int iTexture = 0;
-
-	switch(pev->impulse)
-	{
-		case 1: iTexture = DECAL_GUNSHOT1	+	RANDOM_LONG(0,4); break;
-		case 2: iTexture = DECAL_BLOOD1		+	RANDOM_LONG(0,5); break;
-		case 3: iTexture = DECAL_YBLOOD1	+	RANDOM_LONG(0,5); break;
-		case 4: iTexture = DECAL_GLASSBREAK1+	RANDOM_LONG(0,2); break;
-		case 5: iTexture = DECAL_BIGSHOT1	+	RANDOM_LONG(0,4); break;
-		case 6: iTexture = DECAL_SCORCH1	+	RANDOM_LONG(0,1); break;
-		case 7: iTexture = DECAL_SPIT1		+	RANDOM_LONG(0,1); break;
-	}
-
-	if (pev->impulse)
-		iTexture = gDecals[ iTexture ].index;
-	else
-		iTexture = pev->skin; // custom texture
-
-	Vector vecPos;
-	if (!FStringNull(pev->target))
-		vecPos = CalcLocus_Position( this, pActivator, STRING(pev->target) );
-	else
-		vecPos = pev->origin;
-
-	Vector vecOffs;
-	if (!FStringNull(pev->netname))
-		vecOffs = CalcLocus_Velocity( this, pActivator, STRING(pev->netname) );
-	else
-	{
-		UTIL_MakeVectors(pev->angles);
-		vecOffs = gpGlobals->v_forward;
-	}
-
-	if (pev->message)
-		vecOffs = vecOffs * CalcLocus_Ratio( pActivator, STRING(pev->message) );
-	else
-		vecOffs = vecOffs.Normalize() * 4000;
-
-
-	TraceResult trace;
-	int			entityIndex;
-
-	UTIL_TraceLine( vecPos, vecPos+vecOffs, ignore_monsters, NULL, &trace );
-
-	if (trace.flFraction == 1.0)
-		return; // didn't hit anything, oh well
-	
-	entityIndex = (short)ENTINDEX(trace.pHit);
-
-	MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY);
-		WRITE_BYTE( TE_BSPDECAL );
-		WRITE_COORD( trace.vecEndPos.x );
-		WRITE_COORD( trace.vecEndPos.y );
-		WRITE_COORD( trace.vecEndPos.z );
-		WRITE_SHORT( iTexture );
-		WRITE_SHORT( entityIndex );
-		if ( entityIndex )
-		WRITE_SHORT( (int)VARS(trace.pHit)->modelindex );
-	MESSAGE_END();
-
-//	Vector mirpos = UTIL_MirrorPos(trace.vecEndPos); // Step4enko: UNDONE Mirror sys?
-	/*if(mirpos != Vector(0,0,0))
-	{
-		MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY);
-		WRITE_BYTE( TE_BSPDECAL );
-		WRITE_COORD( mirpos.x );
-		WRITE_COORD( mirpos.y );
-		WRITE_COORD( mirpos.z );
-		WRITE_SHORT( iTexture );
-		WRITE_SHORT( entityIndex );
-		if ( entityIndex )
-		WRITE_SHORT( (int)VARS(trace.pHit)->modelindex );
-		MESSAGE_END();
-	}*/
-}
-
-void CEnvDecal::Spawn( void )
-{
-	if (pev->impulse == 0)
-	{
-		pev->skin = DECAL_INDEX( STRING(pev->noise) );
-
-		if ( pev->skin == 0 )
-			ALERT( at_console, "locus_decal \"%s\" can't find decal \"%s\"\n", STRING(pev->noise) );
-	}
 }
 
 //=========================================================
@@ -2558,7 +2207,11 @@ public:
 
 void CEnvBeverage :: Precache ( void )
 {
-	PRECACHE_MODEL( "models/can.mdl" );
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+	    PRECACHE_MODEL( "models/can.mdl" );
+
 	PRECACHE_SOUND( "weapons/g_bounce3.wav" );
 }
 
@@ -2625,10 +2278,15 @@ LINK_ENTITY_TO_CLASS( item_sodacan, CItemSoda );
 void CItemSoda::Spawn( void )
 {
 	Precache();
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL ( ENT(pev), "models/can.mdl" );
+
 	pev->solid = SOLID_NOT;
 	pev->movetype = MOVETYPE_TOSS;
 
-	SET_MODEL ( ENT(pev), "models/can.mdl" );
 	UTIL_SetSize ( pev, Vector ( 0, 0, 0 ), Vector ( 0, 0, 0 ) );
 	
 	SetThink (&CItemSoda::CanThink);
@@ -2670,9 +2328,73 @@ void CItemSoda::CanTouch ( CBaseEntity *pOther )
 	pev->nextthink = gpGlobals->time;
 }
 
-//========================================================
-// Step4enko: env_warpball - warpball effect for monsters
-//========================================================
+//=======================
+// Lens Flare
+//=======================
+extern int gmsgLensFlare;
+
+class CLensFlare : public CBaseEntity
+{
+public:
+    void Spawn( void );
+    void Think( void );
+    void KeyValue( KeyValueData* );
+    
+    virtual int    Save( CSave &save );
+    virtual int    Restore( CRestore &restore );
+    static    TYPEDESCRIPTION m_SaveData[];
+    
+    int m_iPitch;
+    int m_iRoll;
+};
+
+void CLensFlare :: KeyValue( KeyValueData *pkvd )
+{
+    if (FStrEq(pkvd->szKeyName, "pitch"))
+    {
+        m_iPitch = atoi(pkvd->szValue);
+        pkvd->fHandled = TRUE;
+    }
+    else if (FStrEq(pkvd->szKeyName, "roll"))
+    {
+        m_iRoll = atoi(pkvd->szValue);
+        pkvd->fHandled = TRUE;
+    }
+    else
+        CBaseEntity::KeyValue( pkvd );
+}
+
+void CLensFlare :: Spawn ( void )
+{
+    pev->effects |= EF_NODRAW;
+    
+    pev->nextthink = gpGlobals->time + 0.1;
+}
+
+void CLensFlare :: Think ( void )
+{
+    MESSAGE_BEGIN( MSG_ALL, gmsgLensFlare );
+    WRITE_COORD ( m_iPitch );
+    WRITE_COORD ( m_iRoll );
+    WRITE_BYTE ( TRUE ); // TRUE
+    MESSAGE_END();
+    
+    pev->nextthink = gpGlobals->time + 0.1;
+}
+
+TYPEDESCRIPTION    CLensFlare::m_SaveData[] =
+{
+    DEFINE_FIELD( CLensFlare, m_iPitch, FIELD_INTEGER ),
+    DEFINE_FIELD( CLensFlare, m_iRoll, FIELD_INTEGER ),
+};
+IMPLEMENT_SAVERESTORE( CLensFlare, CBaseEntity );
+
+LINK_ENTITY_TO_CLASS( env_sun, CLensFlare );
+LINK_ENTITY_TO_CLASS( env_lensflare, CLensFlare );
+
+//==================================================================
+// Warp-in effect
+//==================================================================
 class CEnvWarpBall : public CBaseEntity
 {
 public:
@@ -2722,9 +2444,6 @@ void CEnvWarpBall::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE 
 		iTimes++;
 	}
 	EMIT_SOUND( edict(), CHAN_BODY, "debris/beamstart2.wav", 1, ATTN_NORM );
-
-	// Magic Nipples
-	UTIL_ScreenShake( pev->origin, 6, 160, 1.0, 256 );
 
 	CSprite *pSpr = CSprite::SpriteCreate( "sprites/Fexplo1.spr", pev->origin, TRUE );
 	pSpr->AnimateAndDie( 10 );

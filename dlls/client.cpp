@@ -883,7 +883,6 @@ void ClientPrecache( void )
 
 	PRECACHE_SOUND("buttons/spark5.wav");		// hit computer texture
 	PRECACHE_SOUND("buttons/spark6.wav");
-
 	PRECACHE_SOUND("debris/glass1.wav");
 	PRECACHE_SOUND("debris/glass2.wav");
 	PRECACHE_SOUND("debris/glass3.wav");
@@ -891,14 +890,10 @@ void ClientPrecache( void )
 	PRECACHE_SOUND( SOUND_FLASHLIGHT_ON );
 	PRECACHE_SOUND( SOUND_FLASHLIGHT_OFF );
 
-	// Step4enko
-	PRECACHE_SOUND("player/h2odeath.wav");
-	PRECACHE_SOUND("player/water_splash.wav");
-
-    // player gib sounds
+// player gib sounds
 	PRECACHE_SOUND("common/bodysplat.wav");		               
 
-    // player pain sounds
+// player pain sounds
 	PRECACHE_SOUND("player/pl_pain2.wav");
 	PRECACHE_SOUND("player/pl_pain4.wav");
 	PRECACHE_SOUND("player/pl_pain5.wav");
@@ -1206,14 +1201,10 @@ int AddToFullPack( struct entity_state_s *state, int e, edict_t *ent, edict_t *h
 
 	// This non-player entity is being moved by the game .dll and not the physics simulation system
 	//  make sure that we interpolate it's position on the client if it moves
-	if ( !player &&
-		 ent->v.animtime &&
-		 ent->v.velocity[ 0 ] == 0 && 
-		 ent->v.velocity[ 1 ] == 0 && 
-		 ent->v.velocity[ 2 ] == 0 )
-	{
-		state->eflags |= EFLAG_SLERP;
-	}
+	if(ent->v.flags & FL_FLY )
+    	state->eflags |= EFLAG_SLERP;
+	else    
+		state->eflags &= ~EFLAG_SLERP;
 
 	state->scale	  = ent->v.scale;
 	state->solid	  = ent->v.solid;

@@ -12,10 +12,10 @@
 *   use or distribution of this code by or to any unlicensed person is illegal.
 *
 ****/
-//=========================================================
-// bullsquid - big, spotty tentacle-mouthed meanie.
-//=========================================================
 
+//=========================================================
+// Bullsquid
+//=========================================================
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -26,11 +26,12 @@
 #include	"decals.h"
 #include	"soundent.h"
 #include	"game.h"
+#include	"bullsquid.h" // Step4enko
+#include	"proj_squidspit.h" // Step4enko
 
 #define		SQUID_SPRINT_DIST	256 // how close the squid has to get before starting to sprint and refusing to swerve
 
-int			   iSquidSpitSprite;
-	
+int		iSquidSpitSprite;
 
 //=========================================================
 // monster-specific schedule types
@@ -54,129 +55,6 @@ enum
 };
 
 //=========================================================
-// Bullsquid's spit projectile
-//=========================================================
-class CSquidSpit : public CBaseEntity
-{
-public:
-	void Spawn( void );
-
-	static void Shoot( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity );
-	void Touch( CBaseEntity *pOther );
-	void EXPORT Animate( void );
-
-	virtual int		Save( CSave &save );
-	virtual int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	int  m_maxFrame;
-};
-
-LINK_ENTITY_TO_CLASS( squidspit, CSquidSpit );
-
-TYPEDESCRIPTION	CSquidSpit::m_SaveData[] = 
-{
-	DEFINE_FIELD( CSquidSpit, m_maxFrame, FIELD_INTEGER ),
-};
-
-IMPLEMENT_SAVERESTORE( CSquidSpit, CBaseEntity );
-
-void CSquidSpit:: Spawn( void )
-{
-	pev->movetype = MOVETYPE_FLY;
-	pev->classname = MAKE_STRING( "squidspit" );
-	
-	pev->solid = SOLID_BBOX;
-	pev->rendermode = kRenderTransAlpha;
-	pev->renderamt = 255;
-
-	SET_MODEL(ENT(pev), "sprites/bigspit.spr");
-	pev->frame = 0;
-	pev->scale = 0.5;
-
-	UTIL_SetSize( pev, Vector( 0, 0, 0), Vector(0, 0, 0) );
-
-	m_maxFrame = (float) MODEL_FRAMES( pev->modelindex ) - 1;
-}
-
-void CSquidSpit::Animate( void )
-{
-	pev->nextthink = gpGlobals->time + 0.1;
-
-	if ( pev->frame++ )
-	{
-		if ( pev->frame > m_maxFrame )
-		{
-			pev->frame = 0;
-		}
-	}
-}
-
-void CSquidSpit::Shoot( entvars_t *pevOwner, Vector vecStart, Vector vecVelocity )
-{
-	CSquidSpit *pSpit = GetClassPtr( (CSquidSpit *)NULL );
-	pSpit->Spawn();
-	
-	UTIL_SetOrigin( pSpit->pev, vecStart );
-	pSpit->pev->velocity = vecVelocity;
-	pSpit->pev->owner = ENT(pevOwner);
-
-	pSpit->SetThink ( &CSquidSpit::Animate );
-	pSpit->pev->nextthink = gpGlobals->time + 0.1;
-}
-
-void CSquidSpit :: Touch ( CBaseEntity *pOther )
-{
-	TraceResult tr;
-	int		iPitch;
-
-	// splat sound
-	iPitch = RANDOM_FLOAT( 90, 110 );
-
-	EMIT_SOUND_DYN( ENT(pev), CHAN_VOICE, "bullchicken/bc_acid1.wav", 1, ATTN_NORM, 0, iPitch );	
-
-	switch ( RANDOM_LONG( 0, 1 ) )
-	{
-	case 0:
-		EMIT_SOUND_DYN( ENT(pev), CHAN_WEAPON, "bullchicken/bc_spithit1.wav", 1, ATTN_NORM, 0, iPitch );	
-		break;
-	case 1:
-		EMIT_SOUND_DYN( ENT(pev), CHAN_WEAPON, "bullchicken/bc_spithit2.wav", 1, ATTN_NORM, 0, iPitch );	
-		break;
-	}
-
-	if ( !pOther->pev->takedamage )
-	{
-
-		// make a splat on the wall
-		UTIL_TraceLine( pev->origin, pev->origin + pev->velocity * 10, dont_ignore_monsters, ENT( pev ), &tr );
-		UTIL_DecalTrace(&tr, DECAL_SPIT1 + RANDOM_LONG(0,1));
-
-		// make some flecks
-		MESSAGE_BEGIN( MSG_PVS, SVC_TEMPENTITY, tr.vecEndPos );
-			WRITE_BYTE( TE_SPRITE_SPRAY );
-			WRITE_COORD( tr.vecEndPos.x);	// pos
-			WRITE_COORD( tr.vecEndPos.y);	
-			WRITE_COORD( tr.vecEndPos.z);	
-			WRITE_COORD( tr.vecPlaneNormal.x);	// dir
-			WRITE_COORD( tr.vecPlaneNormal.y);	
-			WRITE_COORD( tr.vecPlaneNormal.z);	
-			WRITE_SHORT( iSquidSpitSprite );	// model
-			WRITE_BYTE ( 2 );			// count (5)
-			WRITE_BYTE ( 30 );			// speed
-			WRITE_BYTE ( 80 );			// noise ( client will divide by 100 )
-		MESSAGE_END();
-	}
-	else
-	{
-		pOther->TakeDamage ( pev, pev, gSkillData.bullsquidDmgSpit, DMG_GENERIC );
-	}
-
-	SetThink ( &CSquidSpit::SUB_Remove );
-	pev->nextthink = gpGlobals->time;
-}
-
-//=========================================================
 // Monster's Anim Events Go Here
 //=========================================================
 #define		BSQUID_AE_SPIT		( 1 )
@@ -186,45 +64,7 @@ void CSquidSpit :: Touch ( CBaseEntity *pOther )
 #define		BSQUID_AE_HOP		( 5 )
 #define		BSQUID_AE_THROW		( 6 )
 
-class CBullsquid : public CBaseMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	void SetYawSpeed( void );
-	int  ISoundMask( void );
-	int  Classify ( void );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-	void IdleSound( void );
-	void PainSound( void );
-	void DeathSound( void );
-	void AlertSound ( void );
-	void AttackSound( void );
-	void StartTask ( Task_t *pTask );
-	void RunTask ( Task_t *pTask );
-	BOOL CheckMeleeAttack1 ( float flDot, float flDist );
-	BOOL CheckMeleeAttack2 ( float flDot, float flDist );
-	BOOL CheckRangeAttack1 ( float flDot, float flDist );
-	void RunAI( void );
-	BOOL FValidateHintType ( short sHint );
-	Schedule_t *GetSchedule( void );
-	Schedule_t *GetScheduleOfType ( int Type );
-	int TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType );
-	int IRelationship ( CBaseEntity *pTarget );
-	int IgnoreConditions ( void );
-	MONSTERSTATE GetIdealState ( void );
 
-	int	Save( CSave &save ); 
-	int Restore( CRestore &restore );
-
-	CUSTOM_SCHEDULES;
-	static TYPEDESCRIPTION m_SaveData[];
-
-	BOOL m_fCanThreatDisplay;// this is so the squid only does the "I see a headcrab!" dance one time. 
-
-	float m_flLastHurtTime;// we keep track of this, because if something hurts a squid, it will forget about its love of headcrabs for a while.
-	float m_flNextSpitTime;// last time the bullsquid used the spit attack.
-};
 LINK_ENTITY_TO_CLASS( monster_bullchicken, CBullsquid );
 
 TYPEDESCRIPTION	CBullsquid::m_SaveData[] = 
@@ -425,7 +265,7 @@ int CBullsquid :: ISoundMask ( void )
 //=========================================================
 int	CBullsquid :: Classify ( void )
 {
-	return	CLASS_ALIEN_PREDATOR;
+	return m_iClass?m_iClass:CLASS_ALIEN_PREDATOR;
 }
 
 //=========================================================
@@ -559,7 +399,7 @@ void CBullsquid :: HandleAnimEvent( MonsterEvent_t *pEvent )
 				WRITE_COORD( vecSpitDir.y);	
 				WRITE_COORD( vecSpitDir.z);	
 				WRITE_SHORT( iSquidSpitSprite );	// model
-				WRITE_BYTE ( 15 );			// count
+				WRITE_BYTE ( 4 );			// count
 				WRITE_BYTE ( 210 );			// speed
 				WRITE_BYTE ( 25 );			// noise ( client will divide by 100 )
 			MESSAGE_END();
@@ -1281,4 +1121,3 @@ MONSTERSTATE CBullsquid :: GetIdealState ( void )
 
 	return m_IdealMonsterState;
 }
-

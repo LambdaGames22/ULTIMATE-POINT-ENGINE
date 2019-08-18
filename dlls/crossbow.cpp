@@ -83,10 +83,7 @@ void CCrossbowBolt::Precache( )
 	PRECACHE_SOUND("weapons/xbow_hitbod1.wav");
 	PRECACHE_SOUND("weapons/xbow_hitbod2.wav");
 	PRECACHE_SOUND("weapons/xbow_fly1.wav");
-
 	PRECACHE_SOUND("weapons/xbow_hit1.wav");
-	PRECACHE_SOUND("weapons/xbow_hit2.wav");
-
 	PRECACHE_SOUND("fvox/beep.wav");
 	m_iTrail = PRECACHE_MODEL("sprites/streak.spr");
 }
@@ -140,22 +137,14 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 	}
 	else
 	{
-		// Step4enko
-		switch(RANDOM_LONG(0,1))
-		{
-		    case 0: 
-				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/xbow_hit1.wav", RANDOM_FLOAT(0.95, 1.0), ATTN_NORM, 0, 98 + RANDOM_LONG(0,7)); break;
-
-		    case 1: 
-				EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/xbow_hit2.wav", RANDOM_FLOAT(0.95, 1.0), ATTN_NORM, 0, 98 + RANDOM_LONG(0,7)); break;
-		}
+		EMIT_SOUND_DYN(ENT(pev), CHAN_BODY, "weapons/xbow_hit1.wav", RANDOM_FLOAT(0.95, 1.0), ATTN_NORM, 0, 98 + RANDOM_LONG(0,7));
 
 		SetThink( &CCrossbowBolt::SUB_Remove );
-		pev->nextthink = gpGlobals->time; // This will get changed below if the bolt is allowed to stick in what it hit.
+		pev->nextthink = gpGlobals->time;// this will get changed below if the bolt is allowed to stick in what it hit.
 
 		if ( FClassnameIs( pOther->pev, "worldspawn" ) )
 		{
-			// If what we hit is static architecture, can stay around for a while.
+			// if what we hit is static architecture, can stay around for a while.
 			Vector vecDir = pev->velocity.Normalize( );
 			UTIL_SetOrigin( pev, pev->origin - vecDir * 12 );
 			pev->angles = UTIL_VecToAngles( vecDir );
@@ -252,9 +241,14 @@ void CCrossbow::Spawn( )
 {
 	Precache( );
 	m_iId = WEAPON_CROSSBOW;
-	SET_MODEL(ENT(pev), "models/w_crossbow.mdl");
 
-	m_iDefaultAmmo = CROSSBOW_DEFAULT_GIVE;
+	if (w_model)
+		SET_MODEL(ENT(pev), STRING(w_model));
+	else
+		SET_MODEL(ENT(pev), "models/w_crossbow.mdl");
+
+	if ( FStringNull(m_iDefaultAmmo) && m_iDefaultAmmo == 0 )
+		m_iDefaultAmmo = CROSSBOW_DEFAULT_GIVE;
 
 	FallInit();// get ready to fall down.
 }
@@ -273,7 +267,11 @@ int CCrossbow::AddToPlayer( CBasePlayer *pPlayer )
 
 void CCrossbow::Precache( void )
 {
-	PRECACHE_MODEL("models/w_crossbow.mdl");
+	if (w_model)
+		PRECACHE_MODEL((char*)STRING(w_model));
+	else
+	    PRECACHE_MODEL("models/w_crossbow.mdl");
+
 	PRECACHE_MODEL("models/v_crossbow.mdl");
 	PRECACHE_MODEL("models/p_crossbow.mdl");
 
@@ -314,20 +312,26 @@ BOOL CCrossbow::Deploy( )
 void CCrossbow::Holster( int skiplocal /* = 0 */ )
 {
 	m_fInReload = FALSE;// cancel any reload in progress.
-	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
-	ZoomReset();
 
-	if (m_iClip) SendWeaponAnim( CROSSBOW_HOLSTER1 );
-	else SendWeaponAnim( CROSSBOW_HOLSTER2 );
+	if ( m_fInZoom )
+	{
+		SecondaryAttack( );
+	}
+
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
+	if (m_iClip)
+		SendWeaponAnim( CROSSBOW_HOLSTER1 );
+	else
+		SendWeaponAnim( CROSSBOW_HOLSTER2 );
 }
 
 void CCrossbow::PrimaryAttack( void )
 {
 
 #ifdef CLIENT_DLL
-	if ( m_iChargeLevel && bIsMultiplayer() )
+	if ( m_fInZoom && bIsMultiplayer() )
 #else
-	if ( m_iChargeLevel && g_pGameRules->IsMultiplayer() )
+	if ( m_fInZoom && g_pGameRules->IsMultiplayer() )
 #endif
 	{
 		FireSniperBolt();
@@ -337,27 +341,10 @@ void CCrossbow::PrimaryAttack( void )
 	FireBolt();
 }
 
-void CCrossbow::SecondaryAttack()
-{
-	if ( m_pPlayer->pev->fov != 0 )
-	{
-		m_pPlayer->pev->fov = m_pPlayer->m_iFOV = 0; // 0 means reset to default fov
-		m_iChargeLevel = 0;
-	}
-	else if ( m_pPlayer->pev->fov != 20 )
-	{
-		m_pPlayer->pev->fov = m_pPlayer->m_iFOV = 20;
-		m_iChargeLevel = 1;
-	}
-	
-	pev->nextthink = UTIL_WeaponTimeBase() + 0.1;
-	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0;
-}
-
 // this function only gets called in multiplayer
 void CCrossbow::FireSniperBolt()
 {
-	m_flNextPrimaryAttack = UTIL_WeaponTimeBase() + 0.75;
+	m_flNextPrimaryAttack = GetNextAttackDelay(0.75);
 
 	if (m_iClip == 0)
 	{
@@ -465,56 +452,45 @@ void CCrossbow::FireBolt()
 		m_flTimeWeaponIdle = UTIL_WeaponTimeBase() + 0.75;
 }
 
+
+void CCrossbow::SecondaryAttack()
+{
+	if ( m_pPlayer->pev->fov != 0 )
+	{
+		m_pPlayer->pev->fov = m_pPlayer->m_iFOV = 0; // 0 means reset to default fov
+		m_fInZoom = 0;
+	}
+	else if ( m_pPlayer->pev->fov != 20 )
+	{
+		m_pPlayer->pev->fov = m_pPlayer->m_iFOV = 20;
+		m_fInZoom = 1;
+	}
+	
+	pev->nextthink = UTIL_WeaponTimeBase() + 0.1;
+	m_flNextSecondaryAttack = UTIL_WeaponTimeBase() + 1.0;
+}
+
+
 void CCrossbow::Reload( void )
 {
-	if (m_iClip) return;
-	if ( m_iChargeLevel ) 
-	ZoomReset();
-	pev->body = 0;//show full
-	if ( DefaultReload( 5, CROSSBOW_RELOAD, 4.7 ) )
+	if ( m_pPlayer->ammo_bolts <= 0 )
+		return;
+
+	if ( m_pPlayer->pev->fov != 0 )
+	{
+		SecondaryAttack();
+	}
+
+	if ( DefaultReload( 5, CROSSBOW_RELOAD, 4.5 ) )
 	{
 		EMIT_SOUND_DYN(ENT(m_pPlayer->pev), CHAN_ITEM, "weapons/xbow_reload1.wav", RANDOM_FLOAT(0.95, 1.0), ATTN_NORM, 0, 93 + RANDOM_LONG(0,0xF));
 	}
 }
 
-void CCrossbow :: ZoomUpdate( void )
-{
-	if (m_pPlayer->pev->button & IN_ATTACK2)
-	{
-		if(m_iChargeLevel == 0)
-		{
-			if (m_flShockTime > UTIL_WeaponTimeBase()) return;
-			m_iChargeLevel = 1;
-			m_flTimeUpdate = UTIL_WeaponTimeBase() + 0.5;
-		}
-		if(m_iChargeLevel == 1)
-		{
-			m_pPlayer->m_iFOV = 50;
-			m_iChargeLevel = 2;//ready to zooming, wait for 0.5 secs
-		}
-
-		if (m_flTimeUpdate > UTIL_WeaponTimeBase()) return;
-		if (m_iChargeLevel == 2 && m_pPlayer->m_iFOV > 20)
-		{
-			m_pPlayer->m_iFOV--;
-			m_flTimeUpdate = UTIL_WeaponTimeBase() + 0.02;
-		}
-		if(m_iChargeLevel == 3) ZoomReset();
-	}
-	else if(m_iChargeLevel > 1) m_iChargeLevel = 3;
-}
-
-void CCrossbow::ZoomReset( void )
-{
-	m_flShockTime = UTIL_WeaponTimeBase() + 0.5;
-	m_pPlayer->m_iFOV = 90;
-	m_iChargeLevel = 0;//clear zoom
-}
 
 void CCrossbow::WeaponIdle( void )
 {
 	m_pPlayer->GetAutoaimVector( AUTOAIM_2DEGREES );  // get the autoaim vector but ignore it;  used for autoaim crosshair in DM
-	ZoomUpdate();
 
 	ResetEmptySound( );
 	
@@ -575,7 +551,4 @@ class CCrossbowAmmo : public CBasePlayerAmmo
 	}
 };
 LINK_ENTITY_TO_CLASS( ammo_crossbow, CCrossbowAmmo );
-
-
-
 #endif

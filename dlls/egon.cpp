@@ -37,7 +37,8 @@
 #define EGON_SWITCH_NARROW_TIME			0.75			// Time it takes to switch fire modes
 #define EGON_SWITCH_WIDE_TIME			1.5
 
-enum egon_e {
+enum egon_e 
+{
 	EGON_IDLE1 = 0,
 	EGON_FIDGET1,
 	EGON_ALTFIREON,
@@ -57,9 +58,14 @@ void CEgon::Spawn( )
 {
 	Precache( );
 	m_iId = WEAPON_EGON;
-	SET_MODEL(ENT(pev), "models/w_egon.mdl");
 
-	m_iDefaultAmmo = EGON_DEFAULT_GIVE;
+	if (w_model)
+		SET_MODEL(ENT(pev), STRING(w_model));
+	else
+		SET_MODEL(ENT(pev), "models/w_egon.mdl");
+
+	if ( FStringNull(m_iDefaultAmmo) && m_iDefaultAmmo == 0 )
+		m_iDefaultAmmo = EGON_DEFAULT_GIVE;
 
 	FallInit();// get ready to fall down.
 }
@@ -67,7 +73,11 @@ void CEgon::Spawn( )
 
 void CEgon::Precache( void )
 {
-	PRECACHE_MODEL("models/w_egon.mdl");
+	if (w_model)
+		PRECACHE_MODEL((char*)STRING(w_model));
+	else
+		PRECACHE_MODEL("models/w_egon.mdl");
+
 	PRECACHE_MODEL("models/v_egon.mdl");
 	PRECACHE_MODEL("models/p_egon.mdl");
 
@@ -267,6 +277,7 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 	// ALERT( at_console, "." );
 	
 	UTIL_TraceLine( vecOrigSrc, vecDest, dont_ignore_monsters, pentIgnore, &tr );
+
 	UTIL_DecalTrace( &tr, DECAL_SMALLSCORCH1 );
 
 	if (tr.fAllSolid)
@@ -274,8 +285,6 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 
 #ifndef CLIENT_DLL
 	CBaseEntity *pEntity = CBaseEntity::Instance(tr.pHit);
-
-    UTIL_ScreenShake( pev->origin, 5.0, 150.0, 0.75, 250.0 );
 
 	if (pEntity == NULL)
 		return;
@@ -291,8 +300,6 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 			m_pSprite->pev->effects |= EF_NODRAW;
 		}
 	}
-
-
 #endif
 
 	float timedist;
@@ -348,11 +355,11 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 			}
 			ApplyMultiDamage(m_pPlayer->pev, m_pPlayer->pev);
 
-			if ( g_pGameRules->IsMultiplayer() )
-			{
+			//if ( g_pGameRules->IsMultiplayer() )
+			//{
 				// radius damage a little more potent in multiplayer.
 				::RadiusDamage( tr.vecEndPos, pev, m_pPlayer->pev, gSkillData.plrDmgEgonWide/4, 128, CLASS_NONE, DMG_ENERGYBEAM | DMG_BLAST | DMG_ALWAYSGIB );
-			}
+			//}
 
 			if ( !m_pPlayer->IsAlive() )
 				return;
@@ -379,7 +386,6 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 			pev->dmgtime = gpGlobals->time + GetDischargeInterval();
 			if ( m_shakeTime < gpGlobals->time )
 			{
-				UTIL_ScreenShake( tr.vecEndPos, 5.0, 150.0, 0.75, 250.0 );
 				m_shakeTime = gpGlobals->time + 1.5;
 			}
 		}
@@ -401,11 +407,6 @@ void CEgon::Fire( const Vector &vecOrigSrc, const Vector &vecDir )
 void CEgon::UpdateEffect( const Vector &startPoint, const Vector &endPoint, float timeBlend )
 {
 	m_pPlayer->pev->maxspeed = 150;
-#ifndef CLIENT_DLL
-	if ( !m_pBeam )
-	{
-		CreateEffect();
-	}
 
     // Step4enko: (DLIGHT) & Spark Effect & New Muz
     Vector vecSrc = pev->origin + gpGlobals->v_forward * 2;
@@ -421,6 +422,12 @@ void CEgon::UpdateEffect( const Vector &startPoint, const Vector &endPoint, floa
             WRITE_BYTE( RANDOM_LONG(1,10) / pev->framerate );		// time * 10 WAS 20
             WRITE_BYTE( RANDOM_LONG( 180, 195) );		// decay * 0.1
         MESSAGE_END( );
+
+#ifndef CLIENT_DLL
+	if ( !m_pBeam )
+	{
+		CreateEffect();
+	}
 
 	    // JONNYQUATTRO EFFECT START (DLIGHT VECTOR SHOOT)
         //Start EndPoint Effect elight? dlight? we'll see. or both... thats not a bad idea..
@@ -526,7 +533,6 @@ void CEgon::UpdateEffect( const Vector &startPoint, const Vector &endPoint, floa
 		m_pSprite->pev->frame = 0;
 
 	m_pNoise->SetStartPos( endPoint );
-
 #endif
 
 }

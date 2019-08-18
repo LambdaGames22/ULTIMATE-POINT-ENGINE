@@ -52,9 +52,15 @@ void CHgun::Spawn( )
 {
 	Precache( );
 	m_iId = WEAPON_HORNETGUN;
-	SET_MODEL(ENT(pev), "models/w_hgun.mdl");
 
-	m_iDefaultAmmo = HIVEHAND_DEFAULT_GIVE;
+	if (w_model)
+		SET_MODEL(ENT(pev), STRING(w_model));
+	else
+		SET_MODEL(ENT(pev), "models/w_hgun.mdl");
+
+	if ( FStringNull(m_iDefaultAmmo) && m_iDefaultAmmo == 0 )
+		m_iDefaultAmmo = HIVEHAND_DEFAULT_GIVE;
+
 	m_iFirePhase = 0;
 
 	FallInit();// get ready to fall down.
@@ -63,8 +69,12 @@ void CHgun::Spawn( )
 
 void CHgun::Precache( void )
 {
+	if (w_model)
+		PRECACHE_MODEL((char*)STRING(w_model));
+	else
+		PRECACHE_MODEL("models/w_hgun.mdl");
+
 	PRECACHE_MODEL("models/v_hgun.mdl");
-	PRECACHE_MODEL("models/w_hgun.mdl");
 	PRECACHE_MODEL("models/p_hgun.mdl");
 
 	m_usHornetFire = PRECACHE_EVENT ( 1, "events/firehornet.sc" );
@@ -118,7 +128,7 @@ BOOL CHgun::Deploy( )
 
 void CHgun::Holster( int skiplocal /* = 0 */ )
 {
-	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 1.3;
+	m_pPlayer->m_flNextAttack = UTIL_WeaponTimeBase() + 0.5;
 	SendWeaponAnim( HGUN_DOWN );
 
 	//!!!HACKHACK - can't select hornetgun if it's empty! no way to get ammo for it, either.

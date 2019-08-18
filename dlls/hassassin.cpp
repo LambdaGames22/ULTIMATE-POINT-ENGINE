@@ -15,9 +15,8 @@
 #if !defined( OEM_BUILD ) && !defined( HLDEMO_BUILD )
 
 //=========================================================
-// hassassin - Human assassin, fast and stealthy
+// Human Assassin
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -27,6 +26,7 @@
 #include	"weapons.h"
 #include	"soundent.h"
 #include	"game.h"
+#include	"hassassin.h" // Step4enko
 
 extern DLL_GLOBAL int  g_iSkillLevel;
 
@@ -61,49 +61,7 @@ enum
 
 #define bits_MEMORY_BADJUMP		(bits_MEMORY_CUSTOM1)
 
-class CHAssassin : public CBaseMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	void SetYawSpeed ( void );
-	int  Classify ( void );
-	int  ISoundMask ( void);
-	void Shoot( void );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-	Schedule_t* GetSchedule ( void );
-	Schedule_t* GetScheduleOfType ( int Type );
-	BOOL CheckMeleeAttack1 ( float flDot, float flDist );	// jump
-	// BOOL CheckMeleeAttack2 ( float flDot, float flDist );
-	BOOL CheckRangeAttack1 ( float flDot, float flDist );	// shoot
-	BOOL CheckRangeAttack2 ( float flDot, float flDist );	// throw grenade
-	void StartTask ( Task_t *pTask );
-	void RunAI( void );
-	void RunTask ( Task_t *pTask );
-	void DeathSound ( void );
-	void IdleSound ( void );
-	CUSTOM_SCHEDULES;
 
-	int	Save( CSave &save ); 
-	int Restore( CRestore &restore );
-	static TYPEDESCRIPTION m_SaveData[];
-
-	float m_flLastShot;
-	float m_flDiviation;
-
-	float m_flNextJump;
-	Vector m_vecJumpVelocity;
-
-	float m_flNextGrenadeCheck;
-	Vector	m_vecTossVelocity;
-	BOOL	m_fThrowGrenade;
-
-	int		m_iTargetRanderamt;
-
-	int		m_iFrustration;
-
-	int		m_iShell;
-};
 LINK_ENTITY_TO_CLASS( monster_human_assassin, CHAssassin );
 
 
@@ -159,7 +117,7 @@ int CHAssassin :: ISoundMask ( void)
 //=========================================================
 int	CHAssassin :: Classify ( void )
 {
-	return	CLASS_HUMAN_MILITARY;
+	return m_iClass?m_iClass:CLASS_HUMAN_MILITARY;
 }
 
 //=========================================================
@@ -324,7 +282,7 @@ void CHAssassin :: Precache()
 
 	PRECACHE_SOUND("debris/beamstart1.wav");
 
-	m_iShell = PRECACHE_MODEL ("models/shell.mdl"); // brass shell
+	m_iShell = PRECACHE_MODEL ("models/shell.mdl");// brass shell
 }	
 	
 

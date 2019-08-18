@@ -15,7 +15,7 @@
 #ifndef DOORS_H
 #define DOORS_H
 
-// doors
+// Doors.
 #define SF_DOOR_ROTATE_Y			0
 #define	SF_DOOR_START_OPEN			1
 #define SF_DOOR_ROTATE_BACKWARDS	2
@@ -28,6 +28,20 @@
 #define SF_DOOR_NOMONSTERS			512	// Monster can't open
 #define SF_DOOR_SILENT				0x80000000
 
-
+// Step4enko: For breakable doors.
+typedef enum 
+{ 
+	matGlass = 0, 
+	matWood, 
+	matMetal, 
+	matFlesh, 
+	matCinderBlock, 
+	matCeilingTile, 
+	matComputer, 
+	matUnbreakableGlass, 
+	matRocks, 
+	matNone, 
+	matLastMaterial 
+} Materials;
 
 #endif		//DOORS_H

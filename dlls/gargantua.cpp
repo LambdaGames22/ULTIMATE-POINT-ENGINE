@@ -44,7 +44,7 @@
 #include	"decals.h"
 #include	"explode.h"
 #include	"func_break.h"
-#include	"player.h" // Eat Attack need this
+#include	"gargantua.h" // Step4enko
 
 //=========================================================
 // Gargantua Monster
@@ -232,85 +232,6 @@ void StreakSplash( const Vector &origin, const Vector &direction, int color, int
 	MESSAGE_END();
 }
 
-
-class CGargantua : public CBaseMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	void SetYawSpeed( void );
-	int  Classify ( void );
-	int TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType );
-	void TraceAttack( entvars_t *pevAttacker, float flDamage, Vector vecDir, TraceResult *ptr, int bitsDamageType );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-
-	BOOL CheckMeleeAttack1( float flDot, float flDist );		// Swipe
-	BOOL CheckMeleeAttack2( float flDot, float flDist );		// Flames
-	BOOL CheckRangeAttack1( float flDot, float flDist );		// Stomp attack
-
-	void SetObjectCollisionBox( void )
-	{
-		pev->absmin = pev->origin + Vector( -80, -80, 0 );
-		pev->absmax = pev->origin + Vector( 80, 80, 214 );
-	}
-
-	Schedule_t *GetScheduleOfType( int Type );
-	void StartTask( Task_t *pTask );
-	void RunTask( Task_t *pTask );
-
-	void PrescheduleThink( void );
-
-	void Killed( entvars_t *pevAttacker, int iGib );
-	void DeathEffect( void );
-
-	void EatAttack( void ); // Step4enko: eat attack
-	void EyeOff( void );
-	void EyeOn( int level );
-	void EyeUpdate( void );
-	void Leap( void );
-	void StompAttack( void );
-	void FlameCreate( void );
-	void FlameUpdate( void );
-	void FlameControls( float angleX, float angleY );
-	void FlameDestroy( void );
-	void DLight( void );
-	inline BOOL FlameIsOn( void ) { return m_pFlame[0] != NULL; }
-
-	void FlameDamage( Vector vecStart, Vector vecEnd, entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int iClassIgnore, int bitsDamageType );
-
-	virtual int		Save( CSave &save );
-	virtual int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	CUSTOM_SCHEDULES;
-
-private:
-	static const char *pAttackHitSounds[];
-	static const char *pBeamAttackSounds[];
-	static const char *pAttackMissSounds[];
-	static const char *pRicSounds[];
-	static const char *pFootSounds[];
-	static const char *pIdleSounds[];
-	static const char *pAlertSounds[];
-	static const char *pPainSounds[];
-	static const char *pAttackSounds[];
-	static const char *pStompSounds[];
-	static const char *pBreatheSounds[];
-
-	CBaseEntity* GargantuaCheckTraceHullAttack(float flDist, int iDamage, int iDmgType);
-
-	CSprite		*m_pEyeGlow;		// Glow around the eyes
-	CBeam		*m_pFlame[4];		// Flame beams
-
-	int			m_eyeBrightness;	// Brightness target
-	float		m_seeTime;			// Time to attack (when I see the enemy, I set this)
-	float		m_flameTime;		// Time of next flame attack
-	float		m_painSoundTime;	// Time of next pain sound
-	float		m_streakTime;		// streak timer (don't send too many)
-	float		m_flameX;			// Flame thrower aim
-	float		m_flameY;			
-};
-
 LINK_ENTITY_TO_CLASS( monster_gargantua, CGargantua );
 
 TYPEDESCRIPTION	CGargantua::m_SaveData[] = 
@@ -484,7 +405,21 @@ IMPLEMENT_CUSTOM_SCHEDULES( CGargantua, CBaseMonster );
 
 void CGargantua::EyeOn( int level )
 {
-	m_eyeBrightness = level;	
+	m_eyeBrightness = level;
+	Vector origin = pev->origin;
+	MESSAGE_BEGIN( MSG_BROADCAST, SVC_TEMPENTITY, origin );
+		WRITE_BYTE( TE_ELIGHT );
+		WRITE_SHORT( entindex( ) + 0x1000 );		// entity, attachment
+		WRITE_COORD( origin.x );		// origin
+		WRITE_COORD( origin.y );
+		WRITE_COORD( origin.z );
+		WRITE_COORD( RANDOM_FLOAT( 32, 48 ) );	// radius
+		WRITE_BYTE( 255 );	// R
+		WRITE_BYTE( 10 );	// G
+		WRITE_BYTE( 10 );	// B
+		WRITE_BYTE( 2 );	// life * 10
+		WRITE_COORD( 0 ); // decay
+	MESSAGE_END();
 }
 
 
@@ -787,7 +722,7 @@ void CGargantua :: PrescheduleThink( void )
 //=========================================================
 int	CGargantua :: Classify ( void )
 {
-	return CLASS_ALIEN_MONSTER;
+	return m_iClass?m_iClass:CLASS_ALIEN_MONSTER;
 }
 
 //=========================================================
@@ -864,7 +799,7 @@ void CGargantua :: Precache()
 {
 	int i;
 
-	if(pev->model)
+	if (pev->model)
 		PRECACHE_MODEL((char*)STRING(pev->model));
 	else
 	    PRECACHE_MODEL("models/garg.mdl");
@@ -1272,7 +1207,7 @@ void CGargantua::RunTask( Task_t *pTask )
 
 				// flags
 
-				WRITE_BYTE( BREAK_FLESH );
+				WRITE_BYTE( BREAK_TYPEMASK );
 			MESSAGE_END();
 
 			return;
@@ -1455,7 +1390,4 @@ void SpawnExplosion( Vector center, float randomRange, float time, int magnitude
 	pExplosion->SetThink( &CBaseEntity::SUB_CallUseToggle );
 	pExplosion->pev->nextthink = gpGlobals->time + time;
 }
-
-
-
 #endif

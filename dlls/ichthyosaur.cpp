@@ -15,9 +15,8 @@
 #if !defined( OEM_BUILD ) && !defined( HLDEMO_BUILD )
 
 //=========================================================
-// icthyosaur - evin, satan fish monster
+// Icthyosaur
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -330,7 +329,7 @@ IMPLEMENT_CUSTOM_SCHEDULES(CIchthyosaur, CFlyingMonster);
 //=========================================================
 int	CIchthyosaur :: Classify ( void )
 {
-	return	CLASS_ALIEN_MONSTER;
+	return m_iClass?m_iClass:CLASS_ALIEN_MONSTER;
 }
 
 
@@ -1117,5 +1116,4 @@ Vector CIchthyosaur::DoProbe(const Vector &Probe)
 	}
 	return Vector(0, 0, 0);
 }
-
 #endif

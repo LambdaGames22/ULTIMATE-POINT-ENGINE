@@ -20,10 +20,21 @@ class CItem : public CBaseEntity
 {
 public:
 	void	Spawn( void );
+	void	KeyValue( KeyValueData *pkvd ); // Step4enko
+
 	CBaseEntity*	Respawn( void );
 	void	EXPORT ItemTouch( CBaseEntity *pOther );
 	void	EXPORT Materialize( void );
 	virtual BOOL MyTouch( CBasePlayer *pPlayer ) { return FALSE; };
+
+	virtual int		Save( CSave &save ); 
+	virtual int		Restore( CRestore &restore );
+	
+	static	TYPEDESCRIPTION m_SaveData[];
+
+	int	    m_IszSound; // Step4enko
+
+	string_t	m_iszCustomHudIcon; // Step4enko
 };
 
 #endif // ITEMS_H

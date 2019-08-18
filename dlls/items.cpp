@@ -86,6 +86,27 @@ void CWorldItem::Spawn( void )
 	REMOVE_ENTITY(edict());
 }
 
+TYPEDESCRIPTION	CItem::m_SaveData[] = 
+{
+	DEFINE_FIELD( CItem, m_IszSound, FIELD_STRING ), // Step4enko
+	DEFINE_FIELD( CItem, m_iszCustomHudIcon, FIELD_STRING ), // Step4enko
+};
+
+IMPLEMENT_SAVERESTORE( CItem, CBaseEntity );
+
+void CItem::KeyValue( KeyValueData *pkvd )
+{
+	if (FStrEq(pkvd->szKeyName, "m_IszSound"))
+	{
+		m_IszSound = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "m_iszCustomHudIcon"))
+	{
+		m_iszCustomHudIcon = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+}
 
 void CItem::Spawn( void )
 {
@@ -173,170 +194,558 @@ void CItem::Materialize( void )
 
 class CItemSuit : public CItem
 {
-	void Spawn( void )
-	{ 
-		Precache( );
-		SET_MODEL(ENT(pev), "models/w_suit.mdl");
-		CItem::Spawn( );
-	}
-	void Precache( void )
-	{
-		PRECACHE_MODEL ("models/w_suit.mdl");
-	}
-	BOOL MyTouch( CBasePlayer *pPlayer )
-	{
-		if ( pPlayer->pev->weapons & (1<<WEAPON_SUIT) )
-			return FALSE;
-
-		if ( pev->spawnflags & SF_SUIT_SHORTLOGON )
-			EMIT_SOUND_SUIT(pPlayer->edict(), "!HEV_A0");		// short version of suit logon,
-		else
-			EMIT_SOUND_SUIT(pPlayer->edict(), "!HEV_AAx");	// long version of suit logon
-
-		pPlayer->pev->weapons |= (1<<WEAPON_SUIT);
-		return TRUE;
-	}
+	void Spawn( void );
+	void Precache( void );
+	BOOL MyTouch( CBasePlayer *pPlayer );
 };
 
 LINK_ENTITY_TO_CLASS(item_suit, CItemSuit);
 
-
-
-class CItemBattery : public CItem
+void CItemSuit :: Spawn( void )
 {
-	void Spawn( void )
-	{ 
-		Precache( );
-		SET_MODEL(ENT(pev), "models/w_battery.mdl");
-		CItem::Spawn( );
-	}
-	void Precache( void )
+	Precache( );
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL(ENT(pev), "models/w_suit.mdl");
+
+	CItem::Spawn( );
+}
+
+void CItemSuit :: Precache( void )
+{
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+		PRECACHE_MODEL ("models/w_suit.mdl");
+
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	// Step4enko
+	if (!FStringNull( m_IszSound ))
+		PRECACHE_SOUND( szSoundFile );
+}
+
+BOOL CItemSuit :: MyTouch( CBasePlayer *pPlayer )
+{
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	if (!FStringNull( m_IszSound ))
+		EMIT_SOUND( pPlayer->edict(), CHAN_ITEM, szSoundFile, 1, ATTN_NORM );
+
+	if (!FStringNull( m_iszCustomHudIcon ))
 	{
-		PRECACHE_MODEL ("models/w_battery.mdl");
-		PRECACHE_SOUND( "items/gunpickup2.wav" );
+		MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
+			WRITE_STRING( STRING(m_iszCustomHudIcon) );
+		MESSAGE_END();
 	}
-	BOOL MyTouch( CBasePlayer *pPlayer )
-	{
-		if ( pPlayer->pev->deadflag != DEAD_NO )
-		{
-			return FALSE;
-		}
 
-		if ((pPlayer->pev->armorvalue < MAX_NORMAL_BATTERY) &&
-			(pPlayer->pev->weapons & (1<<WEAPON_SUIT)))
-		{
-			int pct;
-			char szcharge[64];
-
-			pPlayer->pev->armorvalue += gSkillData.batteryCapacity;
-			pPlayer->pev->armorvalue = min(pPlayer->pev->armorvalue, MAX_NORMAL_BATTERY);
-
-			EMIT_SOUND( pPlayer->edict(), CHAN_ITEM, "items/gunpickup2.wav", 1, ATTN_NORM );
-
-			MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
-				WRITE_STRING( STRING(pev->classname) );
-			MESSAGE_END();
-
-			
-			// Suit reports new power level
-			// For some reason this wasn't working in release build -- round it.
-			pct = (int)( (float)(pPlayer->pev->armorvalue * 100.0) * (1.0/MAX_NORMAL_BATTERY) + 0.5);
-			pct = (pct / 5);
-			if (pct > 0)
-				pct--;
-		
-			sprintf( szcharge,"!HEV_%1dP", pct );
-			
-			//EMIT_SOUND_SUIT(ENT(pev), szcharge);
-			pPlayer->SetSuitUpdate(szcharge, FALSE, SUIT_NEXT_IN_30SEC);
-			return TRUE;		
-		}
+	if ( pPlayer->pev->weapons & (1<<WEAPON_SUIT) )
 		return FALSE;
-	}
-};
 
-LINK_ENTITY_TO_CLASS(item_battery, CItemBattery);
+	if ( pev->spawnflags & SF_SUIT_SHORTLOGON )
+		EMIT_SOUND_SUIT(pPlayer->edict(), "!HEV_A0");	// Short version of suit logon.
+	else
+		EMIT_SOUND_SUIT(pPlayer->edict(), "!HEV_AAx");	// Long version of suit logon.
 
+	pPlayer->pev->weapons |= (1<<WEAPON_SUIT);
+	return TRUE;
+}
 
 class CItemAntidote : public CItem
 {
-	void Spawn( void )
-	{ 
-		Precache( );
-		SET_MODEL(ENT(pev), "models/w_antidote.mdl");
-		CItem::Spawn( );
-	}
-	void Precache( void )
-	{
-		PRECACHE_MODEL ("models/w_antidote.mdl");
-	}
-	BOOL MyTouch( CBasePlayer *pPlayer )
-	{
-		pPlayer->SetSuitUpdate("!HEV_DET4", FALSE, SUIT_NEXT_IN_1MIN);
-		
-		pPlayer->m_rgItems[ITEM_ANTIDOTE] += 1;
-		return TRUE;
-	}
+	void Spawn( void );
+	void Precache( void );
+	BOOL MyTouch( CBasePlayer *pPlayer );
 };
 
 LINK_ENTITY_TO_CLASS(item_antidote, CItemAntidote);
 
+void CItemAntidote :: Spawn( void )
+{
+	Precache( );
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL(ENT(pev), "models/w_antidote.mdl");
+		
+	CItem::Spawn( );
+}
+
+void CItemAntidote :: Precache( void )
+{
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+		PRECACHE_MODEL ("models/w_antidote.mdl");
+
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	// Step4enko
+	if (!FStringNull( m_IszSound ))
+		PRECACHE_SOUND( szSoundFile );
+}
+
+BOOL CItemAntidote :: MyTouch( CBasePlayer *pPlayer )
+{
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	if (!FStringNull( m_IszSound ))
+		EMIT_SOUND( pPlayer->edict(), CHAN_ITEM, szSoundFile, 1, ATTN_NORM );
+
+	if (!FStringNull( m_iszCustomHudIcon ))
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
+			WRITE_STRING( STRING(m_iszCustomHudIcon) );
+		MESSAGE_END();
+	}
+
+	pPlayer->SetSuitUpdate("!HEV_DET4", FALSE, SUIT_NEXT_IN_1MIN);
+		
+	pPlayer->m_rgItems[ITEM_ANTIDOTE] += 1;
+	return TRUE;
+}
 
 class CItemSecurity : public CItem
 {
-	void Spawn( void )
-	{ 
-		Precache( );
-		SET_MODEL(ENT(pev), "models/w_security.mdl");
-		CItem::Spawn( );
-	}
-	void Precache( void )
-	{
-		PRECACHE_MODEL ("models/w_security.mdl");
-	}
-	BOOL MyTouch( CBasePlayer *pPlayer )
-	{
-		pPlayer->m_rgItems[ITEM_SECURITY] += 1;
-		return TRUE;
-	}
+	void Spawn( void );
+	void Precache( void );
+	BOOL MyTouch( CBasePlayer *pPlayer );
 };
 
 LINK_ENTITY_TO_CLASS(item_security, CItemSecurity);
 
+void CItemSecurity :: Spawn( void )
+{
+	Precache( );
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL(ENT(pev), "models/w_security.mdl");
+
+	CItem::Spawn( );
+}
+
+void CItemSecurity :: Precache( void )
+{
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+		PRECACHE_MODEL ("models/w_security.mdl");
+
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	// Step4enko
+	if (!FStringNull( m_IszSound ))
+		PRECACHE_SOUND( szSoundFile );
+}
+
+BOOL CItemSecurity :: MyTouch( CBasePlayer *pPlayer )
+{
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	if (!FStringNull( m_IszSound ))
+		EMIT_SOUND( pPlayer->edict(), CHAN_ITEM, szSoundFile, 1, ATTN_NORM );
+
+	if (!FStringNull( m_iszCustomHudIcon ))
+	{
+		MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
+			WRITE_STRING( STRING(m_iszCustomHudIcon) );
+		MESSAGE_END();
+	}
+
+	pPlayer->m_rgItems[ITEM_SECURITY] += 1;
+	return TRUE;
+}
+
 class CItemLongJump : public CItem
 {
-	void Spawn( void )
-	{ 
-		Precache( );
-		SET_MODEL(ENT(pev), "models/w_longjump.mdl");
-		CItem::Spawn( );
-	}
-	void Precache( void )
-	{
-		PRECACHE_MODEL ("models/w_longjump.mdl");
-	}
-	BOOL MyTouch( CBasePlayer *pPlayer )
-	{
-		if ( pPlayer->m_fLongJump )
-		{
-			return FALSE;
-		}
-
-		if ( ( pPlayer->pev->weapons & (1<<WEAPON_SUIT) ) )
-		{
-			pPlayer->m_fLongJump = TRUE;// player now has longjump module
-
-			g_engfuncs.pfnSetPhysicsKeyValue( pPlayer->edict(), "slj", "1" );
-
-			MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
-				WRITE_STRING( STRING(pev->classname) );
-			MESSAGE_END();
-
-			EMIT_SOUND_SUIT( pPlayer->edict(), "!HEV_A1" );	// Play the longjump sound UNDONE: Kelly? correct sound?
-			return TRUE;		
-		}
-		return FALSE;
-	}
+	void Spawn( void );
+	void Precache( void );
+	BOOL MyTouch( CBasePlayer *pPlayer );
 };
 
 LINK_ENTITY_TO_CLASS( item_longjump, CItemLongJump );
+
+void CItemLongJump :: Spawn( void )
+{ 
+	Precache( );
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL(ENT(pev), "models/w_longjump.mdl");
+
+	CItem::Spawn( );
+}
+void CItemLongJump :: Precache( void )
+{
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+		PRECACHE_MODEL ("models/w_longjump.mdl");
+
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	// Step4enko
+	if (!FStringNull( m_IszSound ))
+		PRECACHE_SOUND( szSoundFile );
+
+	PRECACHE_SOUND ("items/pow_big_jump.wav");
+}
+
+BOOL CItemLongJump :: MyTouch( CBasePlayer *pPlayer )
+{
+	char* szSoundFile = (char*) STRING( m_IszSound );
+
+	if (!FStringNull( m_IszSound ))
+		EMIT_SOUND( pPlayer->edict(), CHAN_ITEM, szSoundFile, 1, ATTN_NORM );
+
+	if ( pPlayer->m_fLongJump )
+	{
+		return FALSE;
+	}
+
+	if ( ( pPlayer->pev->weapons & (1<<WEAPON_SUIT) ) )
+	{
+		pPlayer->m_fLongJump = TRUE; // Player now has longjump module.
+
+		g_engfuncs.pfnSetPhysicsKeyValue( pPlayer->edict(), "slj", "1" );
+
+		if (FStringNull( m_iszCustomHudIcon ))
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
+				WRITE_STRING( STRING(pev->classname) );
+			MESSAGE_END();
+		}
+		else
+		{
+			MESSAGE_BEGIN( MSG_ONE, gmsgItemPickup, NULL, pPlayer->pev );
+				WRITE_STRING( STRING(m_iszCustomHudIcon) );
+			MESSAGE_END();
+		}
+
+		EMIT_SOUND_SUIT( pPlayer->edict(), "!HEV_A1" );	// Play the longjump sound UNDONE: Kelly? correct sound?
+		return TRUE;		
+	}
+	return FALSE;
+}
+
+class CItemGeneric : public CBaseAnimating 
+{
+	public:
+		int		Save(CSave &save);
+		int		Restore(CRestore &restore);
+
+		static	TYPEDESCRIPTION m_SaveData[];
+
+		void Spawn(void);
+		void Precache(void);
+		void KeyValue(KeyValueData* pkvd);
+
+		void EXPORT StartupThink(void);
+		void EXPORT SequenceThink(void);
+
+		string_t m_iszSequenceName;
+};
+
+LINK_ENTITY_TO_CLASS(item_generic, CItemGeneric);
+
+TYPEDESCRIPTION CItemGeneric::m_SaveData[] = 
+{
+	DEFINE_FIELD( CItemGeneric, m_iszSequenceName, FIELD_STRING ),
+};
+
+IMPLEMENT_SAVERESTORE(CItemGeneric, CBaseAnimating);
+
+//=========================================================
+// Spawn Generic
+//=========================================================
+void CItemGeneric::Spawn(void) 
+{
+	Precache();
+	SET_MODEL(ENT(pev), (char*)STRING(pev->model));
+
+	UTIL_SetOrigin(pev, pev->origin);
+	UTIL_SetSize(pev, Vector(-16, -16, 0), Vector(16, 16, 32));
+
+	pev->takedamage = DAMAGE_NO;
+	pev->solid = SOLID_BBOX;
+	pev->sequence = -1;
+
+	// Call startup sequence to look for a sequence to play.
+	SetThink(&CItemGeneric::StartupThink);
+	pev->nextthink = UTIL_GlobalTimeBase() + 0.1f;
+}
+
+//=========================================================
+// Precache - precaches all resources this weapon needs
+//=========================================================
+void CItemGeneric::Precache(void) 
+{
+	PRECACHE_MODEL((char*)STRING(pev->model));
+}
+
+//=========================================================
+// KeyValue
+//=========================================================
+void CItemGeneric::KeyValue(KeyValueData* pkvd) 
+{
+	if (FStrEq(pkvd->szKeyName, "sequencename")) 
+	{
+		m_iszSequenceName = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	} 
+	else
+		CBaseAnimating::KeyValue(pkvd);
+}
+
+//=========================================================
+// StartupThink
+//=========================================================
+void CItemGeneric::StartupThink(void) 
+{
+	// Try to look for a sequence to play.
+	int iSequence = -1;
+	iSequence = LookupSequence(STRING(m_iszSequenceName));
+
+	// Validate sequence.
+	if (iSequence != -1) 
+	{
+		pev->sequence = iSequence;
+		SetThink(&CItemGeneric::SequenceThink);
+		
+		pev->nextthink = UTIL_GlobalTimeBase() + 0.01;
+	} 
+	else 
+	{
+		// Cancel play sequence.
+		SetThink(NULL);
+	}
+}
+
+//=========================================================
+// SequenceThink
+//=========================================================
+void CItemGeneric::SequenceThink(void) 
+{
+	// Set next think time.
+	pev->nextthink = UTIL_GlobalTimeBase() + 0.1;
+
+	// Advance frames and dispatch events.
+	StudioFrameAdvance();
+	DispatchAnimEvents();
+
+	// Restart sequence 
+	if (m_fSequenceFinished) 
+	{
+		pev->frame = 0;
+		ResetSequenceInfo();
+
+		if (!m_fSequenceLoops) 
+		{
+			// Prevent from calling ItemThink.
+			SetThink(NULL);
+			m_fSequenceFinished = TRUE;
+			return;
+		} 
+		else 
+		{
+			pev->frame = 0;
+			ResetSequenceInfo();
+		}
+	}
+}
+
+//=========================================================
+// Eye Scanner
+//=========================================================
+class CEyeScanner : public CBaseMonster
+{
+public:
+	void KeyValue( KeyValueData *pkvd );
+	void Spawn();
+	void Precache(void);
+	void EXPORT PlayBeep();
+	void EXPORT WaitForSequenceEnd();
+	int ObjectCaps( void ) { return CBaseMonster::ObjectCaps() | FCAP_IMPULSE_USE; }
+	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	int Classify();
+
+	virtual int Save( CSave &save );
+	virtual int Restore( CRestore &restore );
+
+	static TYPEDESCRIPTION m_SaveData[];
+
+	string_t unlockedTarget;
+	string_t lockedTarget;
+	string_t unlockerName;
+	string_t activatorName;
+};
+
+//=========================================================
+// Save/Restore
+//=========================================================
+TYPEDESCRIPTION CEyeScanner::m_SaveData[] =
+{
+	DEFINE_FIELD( CEyeScanner, unlockedTarget, FIELD_STRING ),
+	DEFINE_FIELD( CEyeScanner, lockedTarget, FIELD_STRING ),
+	DEFINE_FIELD( CEyeScanner, unlockerName, FIELD_STRING ),
+	DEFINE_FIELD( CEyeScanner, activatorName, FIELD_STRING ),
+};
+
+IMPLEMENT_SAVERESTORE( CEyeScanner, CBaseMonster )
+
+LINK_ENTITY_TO_CLASS( item_eyescanner, CEyeScanner )
+
+//=========================================================
+// Key Value
+//=========================================================
+void CEyeScanner::KeyValue(KeyValueData *pkvd)
+{
+	if (FStrEq(pkvd->szKeyName, "unlocked_target"))
+	{
+		unlockedTarget = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "locked_target"))
+	{
+		lockedTarget = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "unlockersname"))
+	{
+		unlockerName = ALLOC_STRING(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else if (FStrEq(pkvd->szKeyName, "reset_delay"))
+	{
+		m_flWait = atof(pkvd->szValue);
+		pkvd->fHandled = TRUE;
+	}
+	else
+		CBaseMonster::KeyValue( pkvd );
+}
+
+//=========================================================
+// Spawn
+//=========================================================
+void CEyeScanner::Spawn()
+{
+	Precache();
+
+	if (pev->model)
+		SET_MODEL(ENT(pev), STRING(pev->model));
+	else
+		SET_MODEL(ENT(pev), "models/EYE_SCANNER.mdl");
+
+	UTIL_SetOrigin(pev, pev->origin);
+	UTIL_SetSize(pev, Vector(-12, -16, 0), Vector(12, 16, 48));
+
+	pev->solid = SOLID_NOT;
+	pev->movetype = MOVETYPE_FLY;
+	pev->takedamage = DAMAGE_NO;
+	pev->health = 1;
+	pev->weapons = 0;
+
+	SetActivity(ACT_CROUCHIDLE);
+	ResetSequenceInfo();
+	SetThink(NULL);
+}
+
+//=========================================================
+// Precache
+//=========================================================
+void CEyeScanner::Precache()
+{
+	if (pev->model)
+		PRECACHE_MODEL((char*)STRING(pev->model));
+	else
+		PRECACHE_MODEL("models/EYE_SCANNER.mdl");
+
+	PRECACHE_SOUND("buttons/blip1.wav");
+	PRECACHE_SOUND("buttons/blip2.wav");
+	PRECACHE_SOUND("buttons/button11.wav");
+}
+
+void CEyeScanner::PlayBeep()
+{
+	pev->skin = pev->weapons % 3 + 1;
+	pev->weapons++;
+	if (pev->weapons < 10) 
+	{
+		EMIT_SOUND( ENT(pev), CHAN_VOICE, "buttons/blip1.wav", 1, ATTN_NORM );
+		pev->nextthink = gpGlobals->time + 0.125;
+	} 
+	else 
+	{
+		pev->skin = 0;
+		pev->weapons = 0;
+		if (FStringNull(unlockerName) || (!FStringNull(activatorName) && FStrEq(STRING(unlockerName), STRING(activatorName)))) 
+		{
+			EMIT_SOUND( ENT(pev), CHAN_VOICE, "buttons/blip2.wav", 1, ATTN_NORM );
+			FireTargets( STRING( unlockedTarget ), this, this, USE_TOGGLE, 0.0f );
+		} 
+		else 
+		{
+			EMIT_SOUND( ENT(pev), CHAN_VOICE, "buttons/button11.wav", 1, ATTN_NORM );
+			FireTargets( STRING( lockedTarget ), this, this, USE_TOGGLE, 0.0f );
+		}
+		activatorName = iStringNull;
+		SetActivity(ACT_CROUCH);
+		ResetSequenceInfo();
+		SetThink(&CEyeScanner::WaitForSequenceEnd);
+		pev->nextthink = gpGlobals->time + 0.1;
+	}
+}
+
+void CEyeScanner::WaitForSequenceEnd()
+{
+	if (m_fSequenceFinished) 
+	{
+		if (m_Activity == ACT_STAND) 
+		{
+			SetActivity(ACT_IDLE);
+			SetThink(&CEyeScanner::PlayBeep);
+			pev->nextthink = gpGlobals->time;
+		} 
+		else if (m_Activity == ACT_CROUCH) 
+		{
+			SetActivity(ACT_CROUCHIDLE);
+			SetThink(NULL);
+		}
+		ResetSequenceInfo();
+	} 
+	else 
+	{
+		StudioFrameAdvance(0.1);
+		pev->nextthink = gpGlobals->time + 0.1;
+	}
+}
+
+//=========================================================
+// Use
+//=========================================================
+void CEyeScanner::Use(CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value)
+{
+	if (m_Activity == ACT_CROUCHIDLE) 
+	{
+		pActivator = pActivator ? pActivator : pCaller;
+		activatorName = pActivator ? pActivator->pev->targetname : iStringNull;
+		SetActivity( ACT_STAND );
+		ResetSequenceInfo();
+		SetThink(&CEyeScanner::WaitForSequenceEnd);
+		pev->nextthink = gpGlobals->time + 0.1;
+	}
+}
+
+//=========================================================
+// Classify
+//=========================================================
+int CEyeScanner::Classify()
+{
+	return CLASS_NONE;
+}

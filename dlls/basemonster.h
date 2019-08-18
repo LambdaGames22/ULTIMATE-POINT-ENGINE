@@ -45,6 +45,7 @@ public:
 		float				m_flFieldOfView;// width of monster's field of view ( dot product )
 		float				m_flWaitFinished;// if we're told to wait, this is the time that the wait will be over.
 		float				m_flMoveWaitFinished;
+		float				m_flLastYawTime; // Solokiller
 
 		Activity			m_Activity;// what the monster is doing (animation)
 		Activity			m_IdealActivity;// monster should switch to this activity
@@ -102,6 +103,9 @@ public:
 	int					m_iTriggerCondition;// for scripted AI, this is the condition that will cause the activation of the monster's TriggerTarget
 	string_t			m_iszTriggerTarget;// name of target that should be fired. 
 
+	int                 m_iHealingAmount; // Step4enko
+	int	                m_IszHealSound; // Step4enko
+
 	Vector				m_HackedGunPos;	// HACK until we can query end of gun
 
 // Scripted sequence Info
@@ -119,12 +123,11 @@ public:
 	void EXPORT			MonsterUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void EXPORT			CorpseUse( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 
-	// LRC - to allow level-designers to change monster allegiances
+// overrideable Monster member functions
 	int					m_iClass;
 	int					m_iPlayerReact;
+	virtual int			Classify( void ) { return m_iClass?m_iClass:CLASS_NONE; }
 
-// overrideable Monster member functions
-	
 	virtual int	 BloodColor( void ) { return m_bloodColor; }
 
 	virtual CBaseMonster *MyMonsterPointer( void ) { return this; }
@@ -324,8 +327,8 @@ public:
 	virtual void AlertSound ( void ) { return; };
 	virtual void IdleSound ( void ) { return; };
 	virtual void PainSound ( void ) { return; };
-	virtual void StepSound( void ); // Step4enko
-	
+	virtual void StepSound ( void );	
+
 	virtual void StopFollowing( BOOL clearSchedule ) {}
 
 	inline void	Remember( int iMemory ) { m_afMemory |= iMemory; }

@@ -65,9 +65,14 @@ void CGauss::Spawn( )
 {
 	Precache( );
 	m_iId = WEAPON_GAUSS;
-	SET_MODEL(ENT(pev), "models/w_gauss.mdl");
 
-	m_iDefaultAmmo = GAUSS_DEFAULT_GIVE;
+	if (w_model)
+		SET_MODEL(ENT(pev), STRING(w_model));
+	else
+		SET_MODEL(ENT(pev), "models/w_gauss.mdl");
+
+	if ( FStringNull(m_iDefaultAmmo) && m_iDefaultAmmo == 0 )
+		m_iDefaultAmmo = GAUSS_DEFAULT_GIVE;
 
 	FallInit();// get ready to fall down.
 }
@@ -75,7 +80,11 @@ void CGauss::Spawn( )
 
 void CGauss::Precache( void )
 {
-	PRECACHE_MODEL("models/w_gauss.mdl");
+	if (w_model)
+		PRECACHE_MODEL((char*)STRING(w_model));
+	else
+		PRECACHE_MODEL("models/w_gauss.mdl");
+
 	PRECACHE_MODEL("models/v_gauss.mdl");
 	PRECACHE_MODEL("models/p_gauss.mdl");
 

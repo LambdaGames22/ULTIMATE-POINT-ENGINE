@@ -12,10 +12,10 @@
 *   use or distribution of this code by or to any unlicensed person is illegal.
 *
 ****/
+
 //=========================================================
 // Alien slave monster
 //=========================================================
-
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
@@ -147,7 +147,7 @@ const char *CISlave::pDeathSounds[] =
 //=========================================================
 int	CISlave :: Classify ( void )
 {
-	return CLASS_ALIEN_MILITARY;
+	return m_iClass?m_iClass:CLASS_ALIEN_MILITARY;
 }
 
 

@@ -157,7 +157,7 @@ const char *CController::pDeathSounds[] =
 //=========================================================
 int	CController :: Classify ( void )
 {
-	return	CLASS_ALIEN_MILITARY;
+	return m_iClass?m_iClass:CLASS_ALIEN_MILITARY;
 }
 
 //=========================================================
@@ -229,8 +229,6 @@ void CController::GibMonster( void )
 	}
 	CSquadMonster::GibMonster( );
 }
-
-
 
 
 void CController :: PainSound( void )
@@ -1430,7 +1428,4 @@ void CControllerZapBall::ExplodeTouch( CBaseEntity *pOther )
 
 	UTIL_Remove( this );
 }
-
-
-
 #endif		// !OEM && !HLDEMO

@@ -12,15 +12,17 @@
 *   use or distribution of this code by or to any unlicensed person is illegal.
 *
 ****/
-//=========================================================
-// barnacle - stationary ceiling mounted 'fishing' monster
-//=========================================================
 
+//=========================================================
+// Barnacle
+//=========================================================
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
 #include	"monsters.h"
 #include	"schedule.h"
+#include	"barnacle.h" // Step4enko
+#include	"player.h" // Step4enko
 
 #define	BARNACLE_BODY_HEIGHT	44 // how 'tall' the barnacle's model is.
 #define BARNACLE_PULL_SPEED		8
@@ -31,29 +33,6 @@
 //=========================================================
 #define	BARNACLE_AE_PUKEGIB	2
 
-class CBarnacle : public CBaseMonster
-{
-public:
-	void Spawn( void );
-	void Precache( void );
-	CBaseEntity *TongueTouchEnt ( float *pflLength );
-	int  Classify ( void );
-	void HandleAnimEvent( MonsterEvent_t *pEvent );
-	void EXPORT BarnacleThink ( void );
-	void EXPORT WaitTillDead ( void );
-	void Killed( entvars_t *pevAttacker, int iGib );
-	int TakeDamage( entvars_t *pevInflictor, entvars_t *pevAttacker, float flDamage, int bitsDamageType );
-	virtual int		Save( CSave &save );
-	virtual int		Restore( CRestore &restore );
-	static	TYPEDESCRIPTION m_SaveData[];
-
-	float m_flAltitude;
-	float m_flKillVictimTime;
-	int	  m_cGibs;// barnacle loads up on gibs each time it kills something.
-	BOOL  m_fTongueExtended;
-	BOOL  m_fLiftingPrey;
-	float m_flTongueAdj;
-};
 LINK_ENTITY_TO_CLASS( monster_barnacle, CBarnacle );
 
 TYPEDESCRIPTION	CBarnacle::m_SaveData[] = 
@@ -75,7 +54,7 @@ IMPLEMENT_SAVERESTORE( CBarnacle, CBaseMonster );
 //=========================================================
 int	CBarnacle :: Classify ( void )
 {
-	return	CLASS_ALIEN_MONSTER;
+	return m_iClass?m_iClass:CLASS_ALIEN_MONSTER;
 }
 
 //=========================================================
@@ -178,12 +157,16 @@ void CBarnacle :: BarnacleThink ( void )
 				return;
 			}
 
-	// still pulling prey.
+	        // Still pulling prey.
+
+			// Step4enko: UNDONE: Put here code, which will remove player's weapons like in Sven Co-op
+			// But better add ability to allow customize it by mappers.
+
 			Vector vecNewEnemyOrigin = m_hEnemy->pev->origin;
 			vecNewEnemyOrigin.x = pev->origin.x;
 			vecNewEnemyOrigin.y = pev->origin.y;
 
-			// guess as to where their neck is
+			// Guess as to where their neck is
 			vecNewEnemyOrigin.x -= 6 * cos(m_hEnemy->pev->angles.y * M_PI/180.0);	
 			vecNewEnemyOrigin.y -= 6 * sin(m_hEnemy->pev->angles.y * M_PI/180.0);
 
