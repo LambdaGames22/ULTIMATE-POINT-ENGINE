@@ -12,6 +12,37 @@
 *
 ****/
 
+// + Means that feature is implemented
+// ? Means that feature is not implemented
+// - Means that feature is removed
+
+//=========================================================
+// Step4enko: It's very easy to implement them all, but it's not really in high priority.
+//
+// TODO:
+// + m_iHead instead pev->body (DONE) (Cuz I h8 entvars variables because sometimes they can be overriden in the engine. 
+//   Fuck them all. Never use entvars.)
+// + fix bullshit with bloody skins (DONE)
+// + wpn drop fix (DONE)
+// + wpn pick up fix (DONE)
+// + Shell ejection (DONE)
+// + Limping Barney (DONE)
+// + Blody skins for dead Barney and limping Barney (DONE)
+//
+// ? Point entity with name like env_chargerpoint (with monster_ type to use) or something. 
+//   So our lovely Barney will use func_healthcharger on it.
+//   I think it will be the best way. I removed my old code because it was buggy.
+//
+// ? RPG/SAW/SHOTGUN/MP5(M4)/CROWBAR for Barney. 
+//   (Such shit as MP5(M4) or shotgun should use new attachment to avoid problems with muzzleflash) 
+//
+// ? GREN_TOSS stuff. Mapper should choose amount of grenades for Barney. Amount of grenades should also affect Barney's bodygroup
+//   and change it: If Barney has 4 grenades - there should be selected body group win 4 grenades and e.t.c.
+//
+// ? Add a check like if (FClassnameIS( fucking entvars variable, "monster_zombie" ) ) then Barney should aim on zombie's head.
+//   Because they always saying like ""
+//=========================================================
+
 //=========================================================
 // Monster Barney
 //=========================================================
@@ -28,14 +59,6 @@
 #include    "barney.h" // Step4enko
 #include    "items.h" // Step4enko
 #include	"animation.h" // Step4enko
-
-//=========================================================
-// Step4enko: TODO:
-// m_iHead instead of pev->body (DONE)
-// fix bullshit with bloody skins (DONE)
-// wpn drop fix (DONE)
-// wpn pick up fix (DONE)
-//=========================================================
 
 //=========================================================
 // Monster's Anim Events Go Here
