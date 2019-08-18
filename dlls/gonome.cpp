@@ -13,12 +13,8 @@
 ****/
 
 //=========================================================
-// Step4enko: UNDONE:
-// FIX NO SOUND???
-// FIX JUMP ATTACK???
-// FIX BULLSHIT WITH ACT_EAT / VICTORYDANCE???
-//========================================================= 
-
+// Gonome
+//=========================================================
 #include	"extdll.h"
 #include	"util.h"
 #include	"cbase.h"
