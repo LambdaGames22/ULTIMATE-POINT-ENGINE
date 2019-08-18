@@ -30,11 +30,11 @@
 #include	"animation.h" // Step4enko
 
 //=========================================================
-// Step4enko: UNDONE:
+// Step4enko: TODO:
 // m_iHead instead of pev->body (DONE)
 // fix bullshit with bloody skins (DONE)
-// wpn drop fix
-// wpn pick up fix
+// wpn drop fix (DONE)
+// wpn pick up fix (DONE)
 //=========================================================
 
 //=========================================================
