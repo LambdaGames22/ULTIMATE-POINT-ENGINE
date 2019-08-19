@@ -26,7 +26,7 @@
 // + wpn pick up fix (DONE)
 // + Shell ejection (DONE)
 // + Limping Barney (DONE)
-// + Blody skins for dead Barney and limping Barney (DONE)
+// + Bloody skins for dead Barney and limping Barney (DONE)
 //
 // ? Point entity with name like env_chargerpoint (with monster_ type to use) or something. 
 //   So our lovely Barney will use func_healthcharger on it.
