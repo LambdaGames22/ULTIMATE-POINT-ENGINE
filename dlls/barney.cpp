@@ -17,11 +17,10 @@
 // - Means that feature is removed
 
 //=========================================================
-// Step4enko: It's very easy to implement them all, but it's not really in high priority.
+// Step4enko: It's very easy to implement them all, but it's not really in the high priority.
 //
 // TODO:
-// + m_iHead instead pev->body (DONE) (Cuz I h8 entvars variables because sometimes they can be overriden in the engine. 
-//   Fuck them all. Never use entvars.)
+// + m_iHead instead pev->body (DONE) (Cuz I h8 entvars variables. Fuck them all.)
 // + fix bullshit with bloody skins (DONE)
 // + wpn drop fix (DONE)
 // + wpn pick up fix (DONE)
@@ -39,7 +38,7 @@
 // ? GREN_TOSS stuff. Mapper should choose amount of grenades for Barney. Amount of grenades should also affect Barney's bodygroup
 //   and change it: If Barney has 4 grenades - there should be selected body group win 4 grenades and e.t.c.
 //
-// ? Add a check like if (FClassnameIS( fucking entvars variable, "monster_zombie" ) ) then Barney should aim on zombie's head.
+// ? Add a check like if (FClassnameIS( m_hEnemy->pev, "monster_zombie" ) ) then Barney should aim on zombie's head.
 //   Because they always saying like "Aim for the head!"
 //=========================================================
 
@@ -56,8 +55,8 @@
 #include	"scripted.h"
 #include	"weapons.h"
 #include	"soundent.h"
-#include    "barney.h" // Step4enko
-#include    "items.h" // Step4enko
+#include        "barney.h" // Step4enko
+#include        "items.h" // Step4enko
 #include	"animation.h" // Step4enko
 
 //=========================================================
@@ -66,11 +65,11 @@
 #define		BARNEY_AE_DRAW		( 2 )
 #define		BARNEY_AE_SHOOT		( 3 )
 #define		BARNEY_AE_HOLSTER	( 4 )
-#define     BARNEY_AE_RELOAD    ( 5 ) // Step4enko
+#define         BARNEY_AE_RELOAD        ( 5 ) // Step4enko
 #define		BARNEY_AE_KICK		( 6 ) // Step4enko
 #define		BARNEY_AE_WPNDROP	( 7 ) // Step4enko
 #define		BARNEY_AE_WPNPICKUP	( 8 ) // Step4enko
-#define		HGRUNT_AE_GREN_TOSS ( 9 ) // Step4enko
+#define		HGRUNT_AE_GREN_TOSS     ( 9 ) // Step4enko
 
 #define BARNEY_LIMP_HEALTH			20
 
@@ -80,7 +79,7 @@
 #define BARNEY_BODY_357DRAWN		3
 #define	BARNEY_BODY_DEAGLEHOLSTERED	4
 #define BARNEY_BODY_DEAGLEDRAWN		5
-#define BARNEY_BODY_GUNGONE			6
+#define BARNEY_BODY_GUNGONE		6
 
 #define	NUM_BARNEY_HEADS	        3
 
@@ -129,7 +128,7 @@ TYPEDESCRIPTION	CBarney::m_SaveData[] =
 	DEFINE_FIELD( CBarney, m_checkAttackTime, FIELD_TIME ),
 	DEFINE_FIELD( CBarney, m_lastAttackCheck, FIELD_BOOLEAN ),
 	DEFINE_FIELD( CBarney, m_flPlayerDamage, FIELD_FLOAT ),
-    DEFINE_FIELD( CBarney, m_iClipSize, FIELD_INTEGER ), // Step4enko
+        DEFINE_FIELD( CBarney, m_iClipSize, FIELD_INTEGER ), // Step4enko
 	DEFINE_FIELD( CBarney, m_flNextHolsterTime, FIELD_TIME ), // Step4enko
 	DEFINE_FIELD( CBarney, m_iWeapon, FIELD_INTEGER ), // Step4enko
 	DEFINE_FIELD( CBarney, m_iHead, FIELD_INTEGER ), // Step4enko
