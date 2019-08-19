@@ -40,7 +40,7 @@
 //   and change it: If Barney has 4 grenades - there should be selected body group win 4 grenades and e.t.c.
 //
 // ? Add a check like if (FClassnameIS( fucking entvars variable, "monster_zombie" ) ) then Barney should aim on zombie's head.
-//   Because they always saying like ""
+//   Because they always saying like "Aim for the head!"
 //=========================================================
 
 //=========================================================
